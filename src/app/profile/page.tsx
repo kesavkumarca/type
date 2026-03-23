@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
-import { supabase } from '@/config/supabase'; // 🎯 Uses your unified client to fix freezing & session caching
+import { supabase } from '@/config/supabase'; // 🎯 Exact folder path
 
 interface ProfileData {
   full_name?: string;
@@ -20,6 +20,21 @@ export default function Profile() {
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [fetchingProfile, setFetchingProfile] = useState(true);
 
+  // 🗓️ Helper function to output DD/MM/YYYY exactly
+  const formatToDDMMYYYY = (dateString: string) => {
+    if (!dateString) return 'Not Available';
+    const date = new Date(dateString);
+    
+    // Check if date parsing fails
+    if (isNaN(date.getTime())) return 'Not Available';
+
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+    const year = date.getFullYear();
+
+    return `${day}/${month}/${year}`;
+  };
+
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
@@ -33,7 +48,7 @@ export default function Profile() {
         const { data, error } = await supabase
           .from('profiles')
           .select('full_name, mobile_number, date_of_birth, created_at')
-          .eq('id', user.id) // 🎯 Locks query to the logged-in user
+          .eq('id', user.id)
           .single();
 
         if (error) throw error;
@@ -48,7 +63,7 @@ export default function Profile() {
     if (user) {
       fetchRealProfile();
     }
-  }, [user, loading, router]); // 🚀 Clean dependency array
+  }, [user, loading, router]);
 
   if (loading || fetchingProfile) {
     return (
@@ -90,7 +105,7 @@ export default function Profile() {
               <label className="block text-sm font-medium text-gray-600">Date of Birth</label>
               <p className="text-xl font-semibold text-gray-900">
                 {profileData?.date_of_birth 
-                  ? new Date(profileData.date_of_birth).toLocaleDateString() 
+                  ? formatToDDMMYYYY(profileData.date_of_birth) 
                   : 'Not Available (Blank in DB)'}
               </p>
             </div>
@@ -99,7 +114,7 @@ export default function Profile() {
               <label className="block text-sm font-medium text-gray-600">Member Since</label>
               <p className="text-xl font-semibold text-gray-900">
                 {profileData?.created_at 
-                  ? new Date(profileData.created_at).toLocaleDateString() 
+                  ? formatToDDMMYYYY(profileData.created_at) 
                   : 'Not Available'}
               </p>
             </div>
