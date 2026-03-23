@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
-import { supabase } from '@/config/supabase';
+import { supabase } from '@/config/supabase'; // 🎯 Uses your centralized config
 
 interface LeaderboardEntry {
   user_id: string;
@@ -29,14 +29,16 @@ export default function Leaderboard() {
   useEffect(() => {
     const fetchLeaderboardData = async () => {
       try {
-        // 1. Fetch all tests with user profile details
+        setPageLoading(true);
+
+        // 🎯 1. Fetch data with an explicit foreign key map to get names
         const { data: testData, error: testError } = await supabase
           .from('test_results')
           .select(`
             user_id,
             wpm,
             accuracy,
-            profiles (
+            profiles:user_id (
               full_name
             )
           `);
@@ -48,12 +50,15 @@ export default function Leaderboard() {
           return;
         }
 
-        // 2. Group tests by user_id to find averages
+        // 🎯 2. Group tests by user_id to find averages
         const userStatsMap: { [key: string]: { wpmSum: number; accuracySum: number; count: number; name: string } } = {};
 
         testData.forEach((test: any) => {
           const uId = test.user_id;
-          const name = test.profiles?.full_name || 'Anonymous Student';
+          
+          // Checks both standard profiles and mapped profiles variables for safety
+          const profileInfo = test.profiles;
+          const name = profileInfo?.full_name || 'Anonymous Student';
 
           if (!userStatsMap[uId]) {
             userStatsMap[uId] = { wpmSum: 0, accuracySum: 0, count: 0, name };
@@ -64,7 +69,7 @@ export default function Leaderboard() {
           userStatsMap[uId].count += 1;
         });
 
-        // 3. Form standard leaderboard array and calculate final averages
+        // 🎯 3. Form standard leaderboard array and calculate final averages
         const unsortedLeaderboard: LeaderboardEntry[] = Object.keys(userStatsMap).map((uId) => {
           const stats = userStatsMap[uId];
           return {
@@ -76,7 +81,7 @@ export default function Leaderboard() {
           };
         });
 
-        // 4. Sort by highest WPM (Speed) first!
+        // 🎯 4. Sort by highest WPM (Speed) first!
         unsortedLeaderboard.sort((a, b) => {
           if (b.avg_wpm === a.avg_wpm) {
             return b.avg_accuracy - a.avg_accuracy; // Tie-breaker: Highest Accuracy
@@ -92,8 +97,10 @@ export default function Leaderboard() {
       }
     };
 
-    fetchLeaderboardData();
-  }, []);
+    if (user) {
+      fetchLeaderboardData();
+    }
+  }, [user]);
 
   if (pageLoading || loading) {
     return (
