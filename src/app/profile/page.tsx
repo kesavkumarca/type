@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
-import { createBrowserClient } from '@supabase/ssr';
+import { supabase } from '@/config/supabase'; // 🎯 Uses your unified client to fix freezing & session caching
 
 interface ProfileData {
   full_name?: string;
@@ -20,12 +20,6 @@ export default function Profile() {
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [fetchingProfile, setFetchingProfile] = useState(true);
 
-  // 🛰️ Hardcoded your Supabase details directly to skip .env issues
-  const supabase = createBrowserClient(
-    'https://abfwcdtcloaxtvhxieof.supabase.co',
-    'sb_publishable_rvOc0n0VwggL8IhWXBdVWA_R_-YkqmV'
-  );
-
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
@@ -39,7 +33,7 @@ export default function Profile() {
         const { data, error } = await supabase
           .from('profiles')
           .select('full_name, mobile_number, date_of_birth, created_at')
-          .eq('id', user.id)
+          .eq('id', user.id) // 🎯 Locks query to the logged-in user
           .single();
 
         if (error) throw error;
@@ -54,7 +48,7 @@ export default function Profile() {
     if (user) {
       fetchRealProfile();
     }
-  }, [user, loading, router, supabase]);
+  }, [user, loading, router]); // 🚀 Clean dependency array
 
   if (loading || fetchingProfile) {
     return (

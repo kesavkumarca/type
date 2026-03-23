@@ -24,4 +24,4 @@ export const createBrowserClient = () => {
 export const supabase = createBrowserClient();
 
 // Admin email for admin panel access
-export const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'lakshmitechinstitute@gmail.com';
+export const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'lakshmitechinstitute97@gmail.com';

@@ -6,10 +6,13 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 export default function Navbar() {
-  const { user, profile, isAdmin, logOut } = useAuth();
+  const { user, profile, logOut } = useAuth(); // 🎯 Pulled user & profile
   const router = useRouter();
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // 👑 DEFINING YOUR ADMIN EMAIL MANUALLY
+  const isAdminEmail = user?.email === 'lakshmitechinstitute97@gmail.com';
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -119,11 +122,11 @@ export default function Navbar() {
               Contact
             </Link>
 
-            {/* Admin Panel Link */}
-            {isAdmin && (
+            {/* 👑 Admin Panel Link (Email Check Applied!) */}
+            {isAdminEmail && (
               <Link
                 href="/admin"
-                className="hover:bg-yellow-600 px-4 py-2 rounded-lg transition bg-yellow-500"
+                className="hover:bg-yellow-600 px-4 py-2 rounded-lg transition bg-yellow-500 text-gray-900 font-bold"
               >
                 Admin Panel
               </Link>
@@ -152,7 +155,7 @@ export default function Navbar() {
               {openDropdown === 'profile' && (
                 <div className="absolute top-full mt-2 bg-white text-gray-900 rounded-lg shadow-xl py-2 w-48 z-50 right-0">
                   <div className="px-4 py-2 border-b">
-                    <p className="font-semibold text-sm">{profile?.full_name}</p>
+                    <p className="font-semibold text-sm">{profile?.full_name || 'User'}</p>
                     <p className="text-xs text-gray-600">{user?.email}</p>
                   </div>
                   <a
