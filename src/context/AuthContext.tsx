@@ -30,66 +30,68 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Check if user is logged in on mount
+  // 🛡️ Helper function to grab profile without causing loop freezes
+  const fetchProfile = async (userId: string) => {
+    try {
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      
+      if (profileData) setProfile(profileData);
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+    }
+  };
+
   useEffect(() => {
     if (!supabase) {
       setLoading(false);
       return;
     }
 
+    let mounted = true;
+
     const checkAuth = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         
-        if (session?.user) {
+        if (mounted && session?.user) {
           setUser(session.user);
-          // Fetch user profile
-          const { data: profileData } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-          
-          if (profileData) {
-            setProfile(profileData);
-          }
+          await fetchProfile(session.user.id);
         }
       } catch (error) {
         console.error('Error checking auth:', error);
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     };
 
     checkAuth();
 
-    // Listen for auth changes
+    // 🎯 Set up the listener ONCE
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return;
+
       setUser(session?.user || null);
+      
       if (session?.user) {
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-        
-        if (profileData) {
-          setProfile(profileData);
-        }
+        await fetchProfile(session.user.id);
       } else {
         setProfile(null);
       }
     });
 
     return () => {
+      mounted = false; // 🛑 Stops memory leaks and infinite freezes!
       subscription?.unsubscribe();
     };
-  }, []);
+  }, []); // 🚀 Empty array means this runs EXACTLY ONCE!
 
   const signUp = async (email: string, password: string, fullName: string, mobileNumber: string, dateOfBirth: string) => {
     if (!supabase) throw new Error('Supabase not configured');
     
-    // Sign up with Supabase Auth
     const { data: { user: authUser }, error: authError } = await supabase.auth.signUp({
       email,
       password,
@@ -104,7 +106,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     if (authError) throw authError;
 
-    // Save profile to public table
     if (authUser) {
       const { error: profileError } = await supabase.from('profiles').insert([
         {
