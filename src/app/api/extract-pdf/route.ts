@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// 🛠️ FIX: Using require() bypasses the Next.js/Vercel ESM export crash!
-const pdfParse = require('pdf-parse');
+// ✅ Uses the fork to prevent the DOMMatrix crash on Vercel!
+const pdfParse = require('pdf-parse-fork');
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,7 +15,6 @@ export async function POST(req: NextRequest) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // Read text from the PDF buffer
     const pdfData = await pdfParse(buffer);
 
     return NextResponse.json({ text: pdfData.text });
