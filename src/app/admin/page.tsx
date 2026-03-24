@@ -105,8 +105,12 @@ export default function AdminUploadPDF() {
         body: formData,
       });
 
+      // 🔍 Read the actual response from your route.ts
+      const result = await response.json();
+
       if (!response.ok) {
-        throw new Error('Failed to parse the PDF file into text.');
+        // 🚀 Display the exact server error (e.g., blank PDF, database crash, etc.)
+        throw new Error(result.error || 'Failed to parse the PDF file into text.');
       }
 
       setSuccess(`🎉 PDF parsed and saved successfully as a passage!`);
@@ -127,7 +131,7 @@ export default function AdminUploadPDF() {
 
     try {
       const { error: deleteError } = await supabase
-        .from('typing_passages')
+        .from('passages') // 👈 Changed from typing_passages to passages
         .delete()
         .eq('id', passageId);
 
