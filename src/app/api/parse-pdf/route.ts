@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import pdf from 'pdf-parse-fork';// 👈 Note: you will need to run `npm i pdf-parse`
+import pdf from 'pdf-parse-fork'; // 👈 Using the Vercel-friendly fork
 
 export async function POST(request: Request) {
   try {
@@ -13,29 +13,33 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
     }
 
-    // Convert PDF File to ArrayBuffer for parsing
+    // Convert PDF File to Buffer for pdf-parse-fork
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // 📝 Extract Text using pdf-parse
+    // 📝 Extract Text using pdf-parse-fork
     const pdfData = await pdf(buffer);
-    const extractedText = pdfData.text.trim();
+    
+    // Clean up the text (remove unnecessary tabs and excessive spaces)
+    const extractedText = pdfData.text
+      .replace(/\s+/g, ' ')
+      .trim();
 
     if (!extractedText) {
-      return NextResponse.json({ error: 'Failed to extract text from PDF.' }, { status: 400 });
+      return NextResponse.json({ error: 'The PDF appears to be empty or an image.' }, { status: 400 });
     }
 
-    // Calculate Stroke Limit based on level
+    // Determine character stroke limits based on level
     const strokeLimit = level === 'junior' ? 1500 : 2250;
 
-    // 🛰️ Initialize Admin Supabase (Bypass RLS for Admin Upload)
+    // 🛰️ Initialize Admin Supabase to bypass RLS policies for admin uploads
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY! // 👈 Ensure this is in your .env file
+      process.env.SUPABASE_SERVICE_ROLE_KEY! // 👈 Ensure this secret is in your .env
     );
 
     // Insert into 'passages' table
-    const { data, error } = await supabaseAdmin
+    const { error } = await supabaseAdmin
       .from('passages')
       .insert([
         {
