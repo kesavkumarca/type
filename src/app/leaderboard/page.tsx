@@ -8,31 +8,18 @@ import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import { supabase } from '@/config/supabase';
 
-// 📊 Area Chart imports
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-
-interface Stats {
-  avgWPM: number;
-  avgAccuracy: number;
-  totalTests: number;
+interface LeaderboardEntry {
+  user_id: string;
+  full_name: string;
+  max_wpm: number;
+  avg_accuracy: number;
+  total_tests: number;
 }
 
-interface GraphData {
-  testDate: string;
-  wpm: number;
-  accuracy: number;
-}
-
-// 🎯 FIXED: Changed Component name to Leaderboard
 export default function Leaderboard() {
   const router = useRouter();
-  const { user, profile, loading } = useAuth();
-  const [stats, setStats] = useState<Stats>({
-    avgWPM: 0,
-    avgAccuracy: 0,
-    totalTests: 0,
-  });
-  const [graphData, setGraphData] = useState<GraphData[]>([]);
+  const { user, loading } = useAuth();
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [statsLoading, setStatsLoading] = useState(true);
 
   useEffect(() => {
@@ -42,56 +29,69 @@ export default function Leaderboard() {
   }, [user, loading, router]);
 
   useEffect(() => {
-    const fetchStats = async () => {
-      if (!user) return;
-
+    const fetchLeaderboard = async () => {
       try {
+        // 🛠️ 1. Fetch ALL test results and inner join the user's name from profiles
         const { data, error } = await supabase
           .from('test_results')
-          .select('wpm, accuracy, created_at')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: true });
+          .select(`
+            wpm,
+            accuracy,
+            user_id,
+            profiles (
+              full_name
+            )
+          `);
 
         if (error) throw error;
 
-        if (data && data.length > 0) {
-          const recentData = data.slice(-10);
+        if (data) {
+          const userBestScores: { [key: string]: LeaderboardEntry } = {};
 
-          // 🛡️ Zero division safety checks so your dashboard never crashes on brand-new users
-          const avgWPM = recentData.length > 0 
-            ? recentData.reduce((sum, result) => sum + result.wpm, 0) / recentData.length 
-            : 0;
+          // 🛠️ 2. Loop through results to aggregate by user (Finding their personal best WPM)
+          data.forEach((row: any) => {
+            const userId = row.user_id;
+            const wpm = row.wpm;
+            const accuracy = row.accuracy;
+            const name = row.profiles?.full_name || 'Anonymous Typist';
 
-          const avgAccuracy = recentData.length > 0 
-            ? recentData.reduce((sum, result) => sum + result.accuracy, 0) / recentData.length 
-            : 0;
-
-          setStats({
-            avgWPM: Math.round(avgWPM),
-            avgAccuracy: Math.round(avgAccuracy),
-            totalTests: data.length, 
+            if (!userBestScores[userId]) {
+              userBestScores[userId] = {
+                user_id: userId,
+                full_name: name,
+                max_wpm: wpm,
+                avg_accuracy: accuracy,
+                total_tests: 1,
+              };
+            } else {
+              userBestScores[userId].total_tests += 1;
+              userBestScores[userId].avg_accuracy += accuracy;
+              if (wpm > userBestScores[userId].max_wpm) {
+                userBestScores[userId].max_wpm = wpm; // Overwrite if it's a new personal record!
+              }
+            }
           });
 
-          const formattedData = recentData.map((result) => {
-            const dateObj = new Date(result.created_at);
-            return {
-              testDate: dateObj.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }),
-              wpm: result.wpm,
-              accuracy: result.accuracy,
-            };
-          });
+          // 🛠️ 3. Finish averages and push into an array
+          const finalLeaderboard = Object.values(userBestScores).map((entry) => ({
+            ...entry,
+            avg_accuracy: Math.round(entry.avg_accuracy / entry.total_tests),
+          }));
 
-          setGraphData(formattedData);
+          // 🛠️ 4. Sort from Highest WPM to Lowest
+          finalLeaderboard.sort((a, b) => b.max_wpm - a.max_wpm);
+
+          setLeaderboard(finalLeaderboard);
         }
       } catch (err) {
-        console.error('Error fetching stats:', err);
+        console.error('Error fetching leaderboard:', err);
       } finally {
         setStatsLoading(false);
       }
     };
 
-    fetchStats();
-  }, [user]);
+    fetchLeaderboard();
+  }, []);
 
   if (loading) {
     return (
@@ -105,7 +105,6 @@ export default function Leaderboard() {
     <div className="min-h-screen bg-[#0b0f19] text-white relative overflow-hidden">
       <div className="absolute top-0 -left-1/4 w-96 h-96 bg-indigo-600 rounded-full filter blur-[120px] opacity-20 pointer-events-none" />
       <div className="absolute bottom-0 -right-1/4 w-96 h-96 bg-emerald-600 rounded-full filter blur-[120px] opacity-10 pointer-events-none" />
-      <div className="absolute top-1/3 right-1/4 w-64 h-64 bg-purple-600 rounded-full filter blur-[100px] opacity-10 pointer-events-none" />
 
       <div className="relative z-10">
         <Navbar />
@@ -121,170 +120,57 @@ export default function Leaderboard() {
                 <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-300">
                   Top Typists Rankings
                 </h1>
-                <p className="text-slate-400 mt-1">See how you measure up against the class percentile</p>
+                <p className="text-slate-400 mt-1">See how you measure up against standard class percentiles</p>
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-            
-            {/* Speed Widget */}
-            <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-all duration-300 group shadow-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Top Global Speed</p>
-                  <div className="flex items-baseline space-x-2 mt-2">
-                    <p className="text-4xl font-extrabold text-white group-hover:text-indigo-300 transition-colors">
-                      {statsLoading ? '-' : stats.avgWPM}
-                    </p>
-                    <span className="text-sm text-slate-400">WPM</span>
-                  </div>
-                </div>
-                <div className="bg-indigo-500/20 p-3 rounded-xl border border-indigo-500/30 group-hover:scale-110 transition-transform">
-                  <svg className="w-8 h-8 text-indigo-400" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z" />
-                  </svg>
-                </div>
-              </div>
-            </div>
+          {/* 🏆 Rank Display Table */}
+          <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-8 mb-12 shadow-2xl overflow-x-auto">
+            {statsLoading ? (
+              <div className="text-center text-slate-400 py-12 animate-pulse">Pulling scoreboard metrics...</div>
+            ) : leaderboard.length > 0 ? (
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-white/10 text-slate-300 text-sm font-semibold tracking-wider uppercase">
+                    <th className="py-4 px-4">Rank</th>
+                    <th className="py-4 px-4">Name</th>
+                    <th className="py-4 px-4 text-center">Best WPM</th>
+                    <th className="py-4 px-4 text-center">Avg Accuracy</th>
+                    <th className="py-4 px-4 text-center">Total Tests</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {leaderboard.map((entry, index) => {
+                    const isCurrentUser = entry.user_id === user?.id;
+                    const rank = index + 1;
 
-            {/* Precision Widget */}
-            <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-all duration-300 group shadow-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Top Precision</p>
-                  <div className="flex items-baseline space-x-2 mt-2">
-                    <p className="text-4xl font-extrabold text-white group-hover:text-emerald-300 transition-colors">
-                      {statsLoading ? '-' : `${stats.avgAccuracy}%`}
-                    </p>
-                  </div>
-                </div>
-                <div className="bg-emerald-500/20 p-3 rounded-xl border border-emerald-500/30 group-hover:scale-110 transition-transform">
-                  <svg className="w-8 h-8 text-emerald-400" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" />
-                  </svg>
-                </div>
-              </div>
-            </div>
-
-            {/* Total Tests Widget */}
-            <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-all duration-300 group shadow-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Total Tests Taken</p>
-                  <div className="flex items-baseline space-x-2 mt-2">
-                    <p className="text-4xl font-extrabold text-white group-hover:text-purple-300 transition-colors">
-                      {statsLoading ? '-' : stats.totalTests}
-                    </p>
-                  </div>
-                </div>
-                <div className="bg-purple-500/20 p-3 rounded-xl border border-purple-500/30 group-hover:scale-110 transition-transform">
-                  <svg className="w-8 h-8 text-purple-400" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
-                  </svg>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* 📈 Neon Visual Performance Chart with Unified Colors */}
-          <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-8 mb-12 shadow-2xl">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-              <div>
-                <h2 className="text-2xl font-bold tracking-tight text-white">Metrics Over Time</h2>
-                <p className="text-sm text-slate-400 mt-1">Breakdown of speed vs accuracy over your last 10 tests</p>
-              </div>
-              <div className="flex space-x-6 text-xs font-semibold">
-                <span className="flex items-center">
-                  <span className="w-3 h-3 bg-[#6366f1] rounded-full mr-2 shadow-[0_0_8px_#6366f1]"></span> 
-                  Speed
-                </span>
-                <span className="flex items-center">
-                  <span className="w-3 h-3 bg-[#10b981] rounded-full mr-2 shadow-[0_0_8px_#10b981]"></span> 
-                  Accuracy
-                </span>
-              </div>
-            </div>
-
-            {graphData.length > 0 ? (
-              <div className="h-96">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={graphData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="colorWpm" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4} />
-                        <stop offset="95%" stopColor="#6366f1" stopOpacity={0.0} />
-                      </linearGradient>
-                      <linearGradient id="colorAccuracy" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
-                        <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
-                      </linearGradient>
-                    </defs>
-
-                    <CartesianGrid strokeDasharray="3 3" stroke="#ffffff" opacity={0.05} vertical={false} />
-                    <XAxis dataKey="testDate" tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
-                    <YAxis yAxisId="left" tickLine={false} axisLine={false} tick={{ fill: '#6366f1', fontSize: 12 }} />
-                    <YAxis yAxisId="right" orientation="right" tickLine={false} axisLine={false} tick={{ fill: '#10b981', fontSize: 12 }} domain={[0, 105]} />
-                    
-                    <Tooltip
-                      contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.9)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)' }}
-                      labelStyle={{ fontWeight: 'bold', color: '#f8fafc' }}
-                      itemStyle={{ color: '#fff' }}
-                    />
-
-                    <Area 
-                      yAxisId="left" 
-                      type="monotone" 
-                      dataKey="wpm" 
-                      name="WPM" 
-                      stroke="#6366f1" 
-                      strokeWidth={3} 
-                      fill="url(#colorWpm)" 
-                      dot={{ fill: '#6366f1', stroke: '#fff', strokeWidth: 1.5, r: 4 }} 
-                      activeDot={{ r: 7 }} 
-                    />
-                    <Area 
-                      yAxisId="right" 
-                      type="monotone" 
-                      dataKey="accuracy" 
-                      name="Accuracy" 
-                      stroke="#10b981" 
-                      strokeWidth={3} 
-                      fill="url(#colorAccuracy)" 
-                      dot={{ fill: '#10b981', stroke: '#fff', strokeWidth: 1.5, r: 4 }} 
-                      activeDot={{ r: 7 }} 
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
+                    return (
+                      <tr 
+                        key={entry.user_id} 
+                        className={`border-b border-white/5 transition-colors hover:bg-white/5 ${isCurrentUser ? 'bg-indigo-500/20 font-bold' : ''}`}
+                      >
+                        <td className="py-5 px-4">
+                          {rank === 1 ? '🥇 1st' : rank === 2 ? '🥈 2nd' : rank === 3 ? '🥉 3rd' : `${rank}th`}
+                        </td>
+                        <td className="py-5 px-4 flex items-center gap-2">
+                          {entry.full_name} 
+                          {isCurrentUser && <span className="text-xs bg-indigo-500 text-white px-2 py-0.5 rounded-full">You</span>}
+                        </td>
+                        <td className="py-5 px-4 text-center text-indigo-300 font-bold">{entry.max_wpm}</td>
+                        <td className="py-5 px-4 text-center text-emerald-300">{entry.avg_accuracy}%</td>
+                        <td className="py-5 px-4 text-center text-purple-300">{entry.total_tests}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             ) : (
               <div className="flex flex-col items-center justify-center h-64 text-slate-500">
-                <p className="text-lg">No metrics available yet.</p>
-                <p className="text-sm mt-1">Take your first typing test to light up the grid!</p>
+                <p className="text-lg">No entries found yet.</p>
+                <p className="text-sm mt-1">Be the first to finish a typing trial and stake your claim!</p>
               </div>
             )}
-          </div>
-
-          {/* Quick Actions */}
-          <div>
-            <h2 className="text-2xl font-bold text-white mb-6">Quick Actions</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <a href="/typing-test/english/junior" className="group bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white p-6 rounded-2xl shadow-lg transition-all duration-300 font-bold flex items-center justify-between">
-                <div>
-                  <p className="text-xl">Launch Practice Test</p>
-                  <p className="text-xs font-normal text-indigo-200 mt-1">Improve your English WPM and precision</p>
-                </div>
-                <div className="p-2 bg-white/10 rounded-lg group-hover:translate-x-1 transition-transform">→</div>
-              </a>
-
-              <a href="/leaderboard" className="group bg-white/5 backdrop-blur-md border border-white/10 hover:bg-white/10 text-white p-6 rounded-2xl shadow-lg transition-all duration-300 font-bold flex items-center justify-between">
-                <div>
-                  <p className="text-xl">View Leaderboards</p>
-                  <p className="text-xs font-normal text-slate-400 mt-1">Check how you compare against peers</p>
-                </div>
-                <div className="p-2 bg-white/10 rounded-lg group-hover:translate-x-1 transition-transform">→</div>
-              </a>
-            </div>
           </div>
         </div>
       </div>
