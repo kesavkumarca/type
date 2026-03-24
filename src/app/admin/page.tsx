@@ -28,6 +28,7 @@ export default function AdminPanel() {
   const [pageLoading, setPageLoading] = useState(true);
 
   // 📂 PDF Upload States
+  const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
   const [isUploadingPdf, setIsUploadingPdf] = useState(false);
   const [uploadReport, setUploadReport] = useState<{ fileName: string; status: string }[]>([]);
 
@@ -64,55 +65,50 @@ export default function AdminPanel() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  // 📂 Multi-PDF Upload Handler
-  const handleMultiplePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
+  // 📁 Track files locally without instantly uploading
+  const handleFileSelection = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setSelectedFiles(e.target.files);
+    }
+  };
+
+  // 🚀 Manual Multi-PDF Upload Handler (Hits the correct bulk API endpoint!)
+  const handleBulkPdfUpload = async () => {
+    if (!selectedFiles || selectedFiles.length === 0) return;
 
     setIsUploadingPdf(true);
     setUploadReport([]);
 
-    const report: { fileName: string; status: string }[] = [];
-
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const pdfFormData = new FormData();
-      pdfFormData.append('file', file);
-
-      try {
-        const response = await fetch('/api/extract-pdf', {
-          method: 'POST',
-          body: pdfFormData,
-        });
-
-        const data = await response.json();
-
-        if (data.text) {
-          const { error: insertError } = await supabase
-            .from('passages')
-            .insert([
-              {
-                text: data.text.trim(),
-                language: formData.language,
-                level: formData.level,
-              },
-            ]);
-
-          if (insertError) throw insertError;
-          report.push({ fileName: file.name, status: 'Success ✅' });
-        } else {
-          report.push({ fileName: file.name, status: 'Failed: No text extracted ❌' });
-        }
-      } catch (err) {
-        console.error(`Error with file ${file.name}:`, err);
-        report.push({ fileName: file.name, status: 'Error during parsing ❌' });
-      }
+    const pdfFormData = new FormData();
+    // Append all selected files to the form
+    for (let i = 0; i < selectedFiles.length; i++) {
+      pdfFormData.append('files', selectedFiles[i]);
     }
+    pdfFormData.append('language', formData.language);
+    pdfFormData.append('level', formData.level);
 
-    setUploadReport(report);
-    setIsUploadingPdf(false);
-    alert('Finished processing PDF files!');
-    fetchPassages();
+    try {
+      const response = await fetch('/api/upload-multiple-pdfs', {
+        method: 'POST',
+        body: pdfFormData,
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setUploadReport(data.results);
+        alert('Bulk PDF Processing Complete!');
+        setSelectedFiles(null); // Clear the file picker
+        fetchPassages(); // Refresh the visual table
+      } else {
+        alert(data.error || 'Failed to upload PDFs');
+      }
+    } catch (err) {
+      console.error('Error during bulk upload:', err);
+      alert('An error occurred while uploading PDFs.');
+    } finally {
+      setIsUploadingPdf(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -220,23 +216,31 @@ export default function AdminPanel() {
             {/* 📂 QUICK BULK PDF ZONE */}
             <div className="p-6 border-2 border-dashed border-gray-300 rounded-lg text-center bg-slate-50">
               <label className="block text-lg font-bold text-gray-800 mb-2">
-                📂 Quick Upload Multiple Question PDFs
+                📂 Select Multiple Question PDFs
               </label>
               <p className="text-xs text-gray-500 mb-4">
-                Select the Language and Level above, then drop your PDF files here! They will save straight to Supabase.
+                Select Language and Level above, choose your PDF files, and then click upload!
               </p>
               <input
                 type="file"
                 accept="application/pdf"
                 multiple
-                onChange={handleMultiplePdfUpload}
+                onChange={handleFileSelection}
                 disabled={isUploadingPdf}
                 className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 disabled:opacity-50 cursor-pointer"
               />
-              {isUploadingPdf && (
-                <p className="mt-4 text-sm text-indigo-600 font-bold animate-pulse">
-                  Uploading and extracting PDFs... Please wait.
-                </p>
+              
+              {selectedFiles && selectedFiles.length > 0 && (
+                <div className="mt-4">
+                  <p className="text-sm text-gray-700 font-medium mb-2">Selected: {selectedFiles.length} file(s)</p>
+                  <button
+                    onClick={handleBulkPdfUpload}
+                    disabled={isUploadingPdf}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-6 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isUploadingPdf ? 'Uploading...' : '🚀 Upload PDFs to Database'}
+                  </button>
+                </div>
               )}
             </div>
 
