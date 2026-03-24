@@ -57,6 +57,7 @@ export default function Leaderboard() {
         if (data && data.length > 0) {
           const recentData = data.slice(-10);
 
+          // 🛡️ Zero division safety checks so your dashboard never crashes on brand-new users
           const avgWPM = recentData.length > 0 
             ? recentData.reduce((sum, result) => sum + result.wpm, 0) / recentData.length 
             : 0;
@@ -126,6 +127,8 @@ export default function Leaderboard() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+            
+            {/* Speed Widget */}
             <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-all duration-300 group shadow-lg">
               <div className="flex items-center justify-between">
                 <div>
@@ -145,6 +148,7 @@ export default function Leaderboard() {
               </div>
             </div>
 
+            {/* Precision Widget */}
             <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-all duration-300 group shadow-lg">
               <div className="flex items-center justify-between">
                 <div>
@@ -163,10 +167,11 @@ export default function Leaderboard() {
               </div>
             </div>
 
+            {/* Total Tests Widget */}
             <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-all duration-300 group shadow-lg">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Global Tests Taken</p>
+                  <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Total Tests Taken</p>
                   <div className="flex items-baseline space-x-2 mt-2">
                     <p className="text-4xl font-extrabold text-white group-hover:text-purple-300 transition-colors">
                       {statsLoading ? '-' : stats.totalTests}
@@ -182,9 +187,104 @@ export default function Leaderboard() {
             </div>
           </div>
 
+          {/* 📈 Neon Visual Performance Chart with Unified Colors */}
           <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-8 mb-12 shadow-2xl">
-            <h2 className="text-2xl font-bold text-white mb-6">Leaderboard Standings Coming Soon!</h2>
-            <p className="text-slate-300">This page will render the top students pulled from Supabase!</p>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+              <div>
+                <h2 className="text-2xl font-bold tracking-tight text-white">Metrics Over Time</h2>
+                <p className="text-sm text-slate-400 mt-1">Breakdown of speed vs accuracy over your last 10 tests</p>
+              </div>
+              <div className="flex space-x-6 text-xs font-semibold">
+                <span className="flex items-center">
+                  <span className="w-3 h-3 bg-[#6366f1] rounded-full mr-2 shadow-[0_0_8px_#6366f1]"></span> 
+                  Speed
+                </span>
+                <span className="flex items-center">
+                  <span className="w-3 h-3 bg-[#10b981] rounded-full mr-2 shadow-[0_0_8px_#10b981]"></span> 
+                  Accuracy
+                </span>
+              </div>
+            </div>
+
+            {graphData.length > 0 ? (
+              <div className="h-96">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={graphData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorWpm" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4} />
+                        <stop offset="95%" stopColor="#6366f1" stopOpacity={0.0} />
+                      </linearGradient>
+                      <linearGradient id="colorAccuracy" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
+                      </linearGradient>
+                    </defs>
+
+                    <CartesianGrid strokeDasharray="3 3" stroke="#ffffff" opacity={0.05} vertical={false} />
+                    <XAxis dataKey="testDate" tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                    <YAxis yAxisId="left" tickLine={false} axisLine={false} tick={{ fill: '#6366f1', fontSize: 12 }} />
+                    <YAxis yAxisId="right" orientation="right" tickLine={false} axisLine={false} tick={{ fill: '#10b981', fontSize: 12 }} domain={[0, 105]} />
+                    
+                    <Tooltip
+                      contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.9)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)' }}
+                      labelStyle={{ fontWeight: 'bold', color: '#f8fafc' }}
+                      itemStyle={{ color: '#fff' }}
+                    />
+
+                    <Area 
+                      yAxisId="left" 
+                      type="monotone" 
+                      dataKey="wpm" 
+                      name="WPM" 
+                      stroke="#6366f1" 
+                      strokeWidth={3} 
+                      fill="url(#colorWpm)" 
+                      dot={{ fill: '#6366f1', stroke: '#fff', strokeWidth: 1.5, r: 4 }} 
+                      activeDot={{ r: 7 }} 
+                    />
+                    <Area 
+                      yAxisId="right" 
+                      type="monotone" 
+                      dataKey="accuracy" 
+                      name="Accuracy" 
+                      stroke="#10b981" 
+                      strokeWidth={3} 
+                      fill="url(#colorAccuracy)" 
+                      dot={{ fill: '#10b981', stroke: '#fff', strokeWidth: 1.5, r: 4 }} 
+                      activeDot={{ r: 7 }} 
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-64 text-slate-500">
+                <p className="text-lg">No metrics available yet.</p>
+                <p className="text-sm mt-1">Take your first typing test to light up the grid!</p>
+              </div>
+            )}
+          </div>
+
+          {/* Quick Actions */}
+          <div>
+            <h2 className="text-2xl font-bold text-white mb-6">Quick Actions</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <a href="/typing-test/english/junior" className="group bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white p-6 rounded-2xl shadow-lg transition-all duration-300 font-bold flex items-center justify-between">
+                <div>
+                  <p className="text-xl">Launch Practice Test</p>
+                  <p className="text-xs font-normal text-indigo-200 mt-1">Improve your English WPM and precision</p>
+                </div>
+                <div className="p-2 bg-white/10 rounded-lg group-hover:translate-x-1 transition-transform">→</div>
+              </a>
+
+              <a href="/leaderboard" className="group bg-white/5 backdrop-blur-md border border-white/10 hover:bg-white/10 text-white p-6 rounded-2xl shadow-lg transition-all duration-300 font-bold flex items-center justify-between">
+                <div>
+                  <p className="text-xl">View Leaderboards</p>
+                  <p className="text-xs font-normal text-slate-400 mt-1">Check how you compare against peers</p>
+                </div>
+                <div className="p-2 bg-white/10 rounded-lg group-hover:translate-x-1 transition-transform">→</div>
+              </a>
+            </div>
           </div>
         </div>
       </div>
