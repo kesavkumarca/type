@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import { supabase } from '@/config/supabase';
 
-export default function AdminPassages() {
+export default function AdminUploadPDF() {
   const router = useRouter();
   const { user, isAdmin, loading } = useAuth();
 
@@ -20,9 +20,9 @@ export default function AdminPassages() {
   const [language, setLanguage] = useState<'english' | 'tamil'>('english');
   const [level, setLevel] = useState<'junior' | 'senior'>('junior');
   const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
+  const [file, setFile] = useState<File | null>(null);
 
-  // 🛡️ Wait for load to finish so you don't get booted to dashboard
+  // 🛡️ Safe Guard: Wait for Auth context to finish loading before checking permissions
   useEffect(() => {
     if (loading === false) {
       if (isAdmin === false) {
@@ -31,42 +31,59 @@ export default function AdminPassages() {
     }
   }, [isAdmin, loading, router]);
 
-  const strokeLimit = level === 'junior' ? 1500 : 2250;
-  const currentStrokes = content.length;
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (selectedFile && selectedFile.type === 'application/pdf') {
+      setFile(selectedFile);
+      setError(null);
+      // Auto-fill title with file name if empty
+      if (!title) {
+        setTitle(selectedFile.name.replace('.pdf', ''));
+      }
+    } else {
+      setFile(null);
+      setError('Please upload a valid PDF file.');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
 
-    if (!title || !content) {
-      setError('Please fill in both the title and text content.');
+    if (!title || !file) {
+      setError('Please provide a title and select a PDF file.');
       return;
     }
 
     setUploading(true);
 
     try {
-      const { error: insertError } = await supabase
-        .from('typing_passages') // Ensure this matches your Supabase table name
-        .insert([
-          {
-            title,
-            content,
-            language,
-            level,
-            stroke_limit: strokeLimit,
-            created_by: user?.id,
-          },
-        ]);
+      // 📝 STEP 1: Read the PDF to get the Text
+      // (For a production system, you would pass this file to an API route to parse the PDF using `pdf-parse`)
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('title', title);
+      formData.append('language', language);
+      formData.append('level', level);
 
-      if (insertError) throw insertError;
+      // Example parsing via an internal Next.js API endpoint we will build
+      const response = await fetch('/api/parse-pdf', {
+        method: 'POST',
+        body: formData,
+      });
 
-      setSuccess(`Passage added successfully for ${language} ${level}!`);
+      if (!response.ok) {
+        throw new Error('Failed to parse the PDF file into text.');
+      }
+
+      const result = await response.json();
+
+      setSuccess(`🎉 PDF parsed and saved successfully as a passage for ${language} ${level}!`);
       setTitle('');
-      setContent('');
+      setFile(null);
     } catch (err: any) {
-      setError(err.message || 'Failed to upload passage');
+      setError(err.message || 'Failed to upload PDF passage');
     } finally {
       setUploading(false);
     }
@@ -97,9 +114,9 @@ export default function AdminPassages() {
               Test Syllabus Master
             </span>
             <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-300">
-              Add New Typing Passage
+              Upload PDF Passage
             </h1>
-            <p className="text-slate-400 mt-1">Populate standardized text parameters for your students</p>
+            <p className="text-slate-400 mt-1">Select a PDF to extract and store text automatically</p>
           </div>
 
           <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl">
@@ -112,7 +129,7 @@ export default function AdminPassages() {
 
             {success && (
               <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-emerald-400 text-sm">
-                🎉 {success}
+                ✅ {success}
               </div>
             )}
 
@@ -139,8 +156,8 @@ export default function AdminPassages() {
                     onChange={(e) => setLevel(e.target.value as 'junior' | 'senior')}
                     className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-white"
                   >
-                    <option value="junior" className="bg-[#111827]">Junior (30 WPM - 1500 Strokes)</option>
-                    <option value="senior" className="bg-[#111827]">Senior (45 WPM - 2250 Strokes)</option>
+                    <option value="junior" className="bg-[#111827]">Junior (1500 Strokes)</option>
+                    <option value="senior" className="bg-[#111827]">Senior (2250 Strokes)</option>
                   </select>
                 </div>
               </div>
@@ -157,21 +174,24 @@ export default function AdminPassages() {
                 />
               </div>
 
-              {/* Character Textarea */}
+              {/* 📂 File Upload Drag & Drop Box */}
               <div>
-                <div className="flex justify-between items-center mb-2">
-                  <label className="block text-sm font-medium text-slate-300">Typing Content</label>
-                  <span className={`text-xs font-semibold ${currentStrokes > strokeLimit ? 'text-red-400' : 'text-indigo-400'}`}>
-                    Strokes: {currentStrokes} / {strokeLimit}
-                  </span>
+                <label className="block text-sm font-medium text-slate-300 mb-2">PDF File</label>
+                <div className="border-2 border-dashed border-white/10 rounded-xl px-6 py-10 flex flex-col items-center justify-center hover:bg-white/5 transition-colors cursor-pointer relative">
+                  <input
+                    type="file"
+                    accept=".pdf"
+                    onChange={handleFileChange}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                  <svg className="w-12 h-12 text-slate-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
+                  <p className="text-white text-base font-semibold">
+                    {file ? file.name : "Drag and drop your PDF here, or click to browse"}
+                  </p>
+                  <p className="text-xs text-slate-400 mt-1">Supports standard text PDFs</p>
                 </div>
-                <textarea
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  rows={10}
-                  placeholder="Paste your standardized typing passage text here..."
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-white placeholder-slate-500 font-mono tracking-wide leading-relaxed"
-                />
               </div>
 
               {/* Submit Button */}
@@ -180,7 +200,7 @@ export default function AdminPassages() {
                 disabled={uploading}
                 className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 rounded-xl shadow-lg transition-all duration-300 hover:shadow-indigo-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {uploading ? 'Uploading to Database...' : 'Add Passage 🚀'}
+                {uploading ? 'Parsing PDF Text...' : 'Add Passage 🚀'}
               </button>
             </form>
           </div>
