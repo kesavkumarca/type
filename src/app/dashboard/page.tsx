@@ -61,7 +61,7 @@ export default function Dashboard() {
             : 0;
 
           const avgAccuracy = recentData.length > 0 
-            ? recentData.reduce((sum, result) => sum + result.accuracy, 0) / recentData.length 
+            ? recentData.reduce((sum: number, result: any) => sum + result.accuracy, 0) / recentData.length 
             : 0;
 
           setStats({
