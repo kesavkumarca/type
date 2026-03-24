@@ -8,6 +8,8 @@ const nextConfig = {
     // ✅ Ignore ESLint warnings during build
     ignoreDuringBuilds: true,
   },
+  // 🔥 ADD THIS SECTION TO FIX THE PDF-PARSE BUILD CRASH
+  serverExternalPackages: ["pdf-parse"],
 };
 
 export default nextConfig;
