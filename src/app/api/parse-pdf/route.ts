@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import pdf from 'pdf-parse'; // 👈 Note: you will need to run `npm i pdf-parse`
+import pdf from 'pdf-parse-fork';// 👈 Note: you will need to run `npm i pdf-parse`
 
 export async function POST(request: Request) {
   try {
