@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import { supabase } from '@/config/supabase';
 
-// 📊 Upgraded Recharts imports for Area Charts
+// 📊 Recharts for smooth UI area rendering
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface Stats {
@@ -52,17 +52,24 @@ export default function Dashboard() {
         if (error) throw error;
 
         if (data && data.length > 0) {
-          const avgWPM = data.reduce((sum, result) => sum + result.wpm, 0) / data.length;
-          const avgAccuracy = data.reduce((sum, result) => sum + result.accuracy, 0) / data.length;
+          const recentData = data.slice(-10);
+
+          // 🔥 FIXED: Standardize safety checks so dividing by 0 never yields a crash!
+          const avgWPM = recentData.length > 0 
+            ? recentData.reduce((sum, result) => sum + result.wpm, 0) / recentData.length 
+            : 0;
+
+          const avgAccuracy = recentData.length > 0 
+            ? recentData.reduce((sum, result) => sum + result.accuracy, 0) / recentData.length 
+            : 0;
 
           setStats({
             avgWPM: Math.round(avgWPM),
             avgAccuracy: Math.round(avgAccuracy),
-            totalTests: data.length,
+            totalTests: data.length, // Still shows lifetime tests!
           });
 
-          // Grab the last 10 tests and use actual localized dates!
-          const formattedData = data.slice(-10).map((result) => {
+          const formattedData = recentData.map((result) => {
             const dateObj = new Date(result.created_at);
             return {
               testDate: dateObj.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }),
@@ -93,7 +100,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-[#0b0f19] text-white relative overflow-hidden">
-      {/* 🌌 Atmospheric Glow Blobs (Background) */}
+      {/* 🌌 Cinematic Background Glow Drops */}
       <div className="absolute top-0 -left-1/4 w-96 h-96 bg-indigo-600 rounded-full filter blur-[120px] opacity-20 pointer-events-none" />
       <div className="absolute bottom-0 -right-1/4 w-96 h-96 bg-emerald-600 rounded-full filter blur-[120px] opacity-10 pointer-events-none" />
       <div className="absolute top-1/3 right-1/4 w-64 h-64 bg-purple-600 rounded-full filter blur-[100px] opacity-10 pointer-events-none" />
@@ -103,12 +110,12 @@ export default function Dashboard() {
 
         <div className="max-w-6xl mx-auto px-4 py-12">
           
-          {/* 👤 Profile Section (Glassmorphism card) */}
+          {/* 👤 Profile Glass Panel */}
           <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 mb-8 shadow-2xl">
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div>
                 <span className="text-xs font-semibold tracking-wider text-indigo-400 uppercase mb-1 block">
-                  Student Portal
+                  Student Profile
                 </span>
                 <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-300">
                   {profile?.full_name || 'Welcome Back!'}
@@ -122,14 +129,14 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* 📊 Stats Grid Cards */}
+          {/* 📊 Score Grid Mechanism */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
             
-            {/* WPM Card */}
+            {/* Speed Widget */}
             <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-all duration-300 group shadow-lg">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Average Speed</p>
+                  <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Avg Speed (Recent)</p>
                   <div className="flex items-baseline space-x-2 mt-2">
                     <p className="text-4xl font-extrabold text-white group-hover:text-indigo-300 transition-colors">
                       {statsLoading ? '-' : stats.avgWPM}
@@ -145,11 +152,11 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Accuracy Card */}
+            {/* Precision Widget */}
             <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-all duration-300 group shadow-lg">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Average Accuracy</p>
+                  <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Avg Accuracy (Recent)</p>
                   <div className="flex items-baseline space-x-2 mt-2">
                     <p className="text-4xl font-extrabold text-white group-hover:text-emerald-300 transition-colors">
                       {statsLoading ? '-' : `${stats.avgAccuracy}%`}
@@ -164,11 +171,11 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Tests Taken Card */}
+            {/* Scale Widget */}
             <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-all duration-300 group shadow-lg">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Total Drills Completed</p>
+                  <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Total Drills Tracked</p>
                   <div className="flex items-baseline space-x-2 mt-2">
                     <p className="text-4xl font-extrabold text-white group-hover:text-purple-300 transition-colors">
                       {statsLoading ? '-' : stats.totalTests}
@@ -184,16 +191,16 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* 📈 Neon Visual Performance Chart */}
+          {/* 📈 Glass Trend Visual (Split Axes) */}
           <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-8 mb-12 shadow-2xl">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
               <div>
-                <h2 className="text-2xl font-bold tracking-tight text-white">Metrics Over Time</h2>
-                <p className="text-sm text-slate-400 mt-1">Breakdown of speed vs accuracy over your last 10 tests</p>
+                <h2 className="text-2xl font-bold tracking-tight text-white">Visual Progress Tracking</h2>
+                <p className="text-sm text-slate-400 mt-1">Timeline analysis for your last 10 trials</p>
               </div>
               <div className="flex space-x-6 text-xs font-semibold">
-                <span className="flex items-center"><span className="w-3 h-3 bg-indigo-500 rounded-full mr-2 shadow-[0_0_8px_#4f46e5]"></span> Speed</span>
-                <span className="flex items-center"><span className="w-3 h-3 bg-emerald-400 rounded-full mr-2 shadow-[0_0_8px_#10b981]"></span> Accuracy</span>
+                <span className="flex items-center"><span className="w-3 h-3 bg-indigo-500 rounded-full mr-2 shadow-[0_0_8px_#4f46e5]"></span> Speed (WPM)</span>
+                <span className="flex items-center"><span className="w-3 h-3 bg-emerald-400 rounded-full mr-2 shadow-[0_0_8px_#10b981]"></span> Accuracy (%)</span>
               </div>
             </div>
 
@@ -215,7 +222,7 @@ export default function Dashboard() {
                     <CartesianGrid strokeDasharray="3 3" stroke="#ffffff" opacity={0.05} vertical={false} />
                     <XAxis dataKey="testDate" tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
                     
-                    {/* Double Y-Axis to separate scale for Speed (Any) & Accuracy (0-100) */}
+                    {/* Separate Y-Axes so Speed scale doesn't compress Accuracy Scale! */}
                     <YAxis yAxisId="left" tickLine={false} axisLine={false} tick={{ fill: '#818cf8', fontSize: 12 }} />
                     <YAxis yAxisId="right" orientation="right" tickLine={false} axisLine={false} tick={{ fill: '#34d399', fontSize: 12 }} domain={[0, 105]} />
                     
@@ -258,7 +265,7 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* ⚡ Quick Links section */}
+          {/* ⚡ Secondary navigation */}
           <div>
             <h2 className="text-2xl font-bold text-white mb-6">Quick Actions</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -267,8 +274,8 @@ export default function Dashboard() {
                 className="group bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white p-6 rounded-2xl shadow-lg transition-all duration-300 font-bold flex items-center justify-between"
               >
                 <div>
-                  <p className="text-xl">Launch Practice Test</p>
-                  <p className="text-xs font-normal text-indigo-200 mt-1">Improve your English WPM and precision</p>
+                  <p className="text-xl">Practice Trial</p>
+                  <p className="text-xs font-normal text-indigo-200 mt-1">Hone speed and muscle memory precision</p>
                 </div>
                 <div className="p-2 bg-white/10 rounded-lg group-hover:translate-x-1 transition-transform">
                   →
@@ -280,8 +287,8 @@ export default function Dashboard() {
                 className="group bg-white/5 backdrop-blur-md border border-white/10 hover:bg-white/10 text-white p-6 rounded-2xl shadow-lg transition-all duration-300 font-bold flex items-center justify-between"
               >
                 <div>
-                  <p className="text-xl">View Leaderboards</p>
-                  <p className="text-xs font-normal text-slate-400 mt-1">Check how you compare against peers</p>
+                  <p className="text-xl">Standings & Board</p>
+                  <p className="text-xs font-normal text-slate-400 mt-1">Analyze standard class percentiles</p>
                 </div>
                 <div className="p-2 bg-white/10 rounded-lg group-hover:translate-x-1 transition-transform">
                   →
