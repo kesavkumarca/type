@@ -1,11 +1,8 @@
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  typescript: {
-    // ✅ Ignore TypeScript errors during build so Vercel can deploy it!
-    ignoreBuildErrors: true,
-  },
-  // 🔥 UPDATED TO IGNORE THE FORK LIBRARY CRASH ON VERCEL
-  serverExternalPackages: ["pdf-parse-fork"],
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  // 🚀 Tell Next.js to NOT bundle these messy PDF libraries
+  serverExternalPackages: ["pdf-parse-fork"], 
 };
 
 export default nextConfig;
