@@ -54,32 +54,45 @@ export default function Home() {
             </Link>
           </div>
 
-          {/* ✨ Feature Glass Cards Grid */}
+          {/* ✨ Feature Glass Cards Grid (Now with Glowing Backgrounds) */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-16">
             
-            <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-8 hover:bg-white/10 transition-all duration-300 shadow-xl group">
-              <div className="text-5xl mb-4 group-hover:scale-110 transition-transform">⚡</div>
-              <h3 className="text-2xl font-bold mb-4 text-white">Real-Time Metrics</h3>
-              <p className="text-base text-slate-400">
-                Track your WPM, accuracy, and progress metrics live during each standardized typing test sequence.
-              </p>
+            {/* ⚡ Real-Time Metrics (Indigo Glow) */}
+            <div className="relative bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-8 hover:bg-white/10 transition-all duration-300 shadow-xl group overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/20 to-transparent opacity-30 group-hover:opacity-60 transition-opacity duration-500" />
+              <div className="relative z-10">
+                <div className="text-5xl mb-4 group-hover:scale-110 transition-transform duration-300">⚡</div>
+                <h3 className="text-2xl font-bold mb-4 text-white">Real-Time Metrics</h3>
+                <p className="text-base text-slate-400">
+                  Track your WPM, accuracy, and progress metrics live during each standardized typing test sequence.
+                </p>
+              </div>
             </div>
 
-            <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-8 hover:bg-white/10 transition-all duration-300 shadow-xl group">
-              <div className="text-5xl mb-4 group-hover:scale-110 transition-transform">🌍</div>
-              <h3 className="text-2xl font-bold mb-4 text-white">Multiple Languages</h3>
-              <p className="text-base text-slate-400">
-                Practice typing seamlessly in English and Tamil with calibration modules for all student skill parameters.
-              </p>
+            {/* 🌍 Multiple Languages (Emerald Glow) */}
+            <div className="relative bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-8 hover:bg-white/10 transition-all duration-300 shadow-xl group overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/20 to-transparent opacity-30 group-hover:opacity-60 transition-opacity duration-500" />
+              <div className="relative z-10">
+                <div className="text-5xl mb-4 group-hover:scale-110 transition-transform duration-300">🌍</div>
+                <h3 className="text-2xl font-bold mb-4 text-white">Multiple Languages</h3>
+                <p className="text-base text-slate-400">
+                  Practice typing seamlessly in English and Tamil with calibration modules for all student skill parameters.
+                </p>
+              </div>
             </div>
 
-            <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-8 hover:bg-white/10 transition-all duration-300 shadow-xl group">
-              <div className="text-5xl mb-4 group-hover:scale-110 transition-transform">🏆</div>
-              <h3 className="text-2xl font-bold mb-4 text-white">Global Ranking</h3>
-              <p className="text-base text-slate-400">
-                Compete with other students and see where you stand on our live institute ranking boards.
-              </p>
+            {/* 🏆 Global Ranking (Gold/Trophy RGB Glow) */}
+            <div className="relative bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-8 hover:bg-white/10 transition-all duration-300 shadow-xl group overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-[rgb(218,165,32)]/20 to-transparent opacity-30 group-hover:opacity-60 transition-opacity duration-500" />
+              <div className="relative z-10">
+                <div className="text-5xl mb-4 group-hover:scale-110 transition-transform duration-300">🏆</div>
+                <h3 className="text-2xl font-bold mb-4 text-white">Global Ranking</h3>
+                <p className="text-base text-slate-400">
+                  Compete with other students and see where you stand on our live institute ranking boards.
+                </p>
+              </div>
             </div>
+
           </div>
 
           {/* 🛠️ How it Works section translated to dark glass */}
