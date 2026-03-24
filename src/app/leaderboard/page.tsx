@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import { supabase } from '@/config/supabase';
 
-// 📊 Area chart widgets for the neon glow effect
+// 📊 Area Chart imports
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface Stats {
@@ -56,7 +56,7 @@ export default function Dashboard() {
         if (data && data.length > 0) {
           const recentData = data.slice(-10);
 
-          // Zero division safety checks
+          // 🛡️ Zero division safety checks so your dashboard never crashes on brand-new users
           const avgWPM = recentData.length > 0 
             ? recentData.reduce((sum, result) => sum + result.wpm, 0) / recentData.length 
             : 0;
@@ -133,6 +133,8 @@ export default function Dashboard() {
 
           {/* 📊 Score Grid Mechanism */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+            
+            {/* Speed Widget */}
             <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-all duration-300 group shadow-lg">
               <div className="flex items-center justify-between">
                 <div>
@@ -152,6 +154,7 @@ export default function Dashboard() {
               </div>
             </div>
 
+            {/* Precision Widget */}
             <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-all duration-300 group shadow-lg">
               <div className="flex items-center justify-between">
                 <div>
@@ -170,10 +173,11 @@ export default function Dashboard() {
               </div>
             </div>
 
+            {/* Total Tests Widget */}
             <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-all duration-300 group shadow-lg">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Total Drills Completed</p>
+                  <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Total Tests Taken</p>
                   <div className="flex items-baseline space-x-2 mt-2">
                     <p className="text-4xl font-extrabold text-white group-hover:text-purple-300 transition-colors">
                       {statsLoading ? '-' : stats.totalTests}
@@ -189,7 +193,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* 📈 Neon Visual Performance Chart */}
+          {/* 📈 Neon Visual Performance Chart with Unified Colors */}
           <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-8 mb-12 shadow-2xl">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
               <div>
@@ -197,8 +201,14 @@ export default function Dashboard() {
                 <p className="text-sm text-slate-400 mt-1">Breakdown of speed vs accuracy over your last 10 tests</p>
               </div>
               <div className="flex space-x-6 text-xs font-semibold">
-                <span className="flex items-center"><span className="w-3 h-3 bg-indigo-500 rounded-full mr-2 shadow-[0_0_8px_#4f46e5]"></span> Speed</span>
-                <span className="flex items-center"><span className="w-3 h-3 bg-emerald-400 rounded-full mr-2 shadow-[0_0_8px_#10b981]"></span> Accuracy</span>
+                <span className="flex items-center">
+                  <span className="w-3 h-3 bg-[#6366f1] rounded-full mr-2 shadow-[0_0_8px_#6366f1]"></span> 
+                  Speed
+                </span>
+                <span className="flex items-center">
+                  <span className="w-3 h-3 bg-[#10b981] rounded-full mr-2 shadow-[0_0_8px_#10b981]"></span> 
+                  Accuracy
+                </span>
               </div>
             </div>
 
@@ -208,8 +218,8 @@ export default function Dashboard() {
                   <AreaChart data={graphData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <defs>
                       <linearGradient id="colorWpm" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.4} />
-                        <stop offset="95%" stopColor="#4f46e5" stopOpacity={0.0} />
+                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4} />
+                        <stop offset="95%" stopColor="#6366f1" stopOpacity={0.0} />
                       </linearGradient>
                       <linearGradient id="colorAccuracy" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
@@ -219,8 +229,8 @@ export default function Dashboard() {
 
                     <CartesianGrid strokeDasharray="3 3" stroke="#ffffff" opacity={0.05} vertical={false} />
                     <XAxis dataKey="testDate" tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
-                    <YAxis yAxisId="left" tickLine={false} axisLine={false} tick={{ fill: '#818cf8', fontSize: 12 }} />
-                    <YAxis yAxisId="right" orientation="right" tickLine={false} axisLine={false} tick={{ fill: '#34d399', fontSize: 12 }} domain={[0, 105]} />
+                    <YAxis yAxisId="left" tickLine={false} axisLine={false} tick={{ fill: '#6366f1', fontSize: 12 }} />
+                    <YAxis yAxisId="right" orientation="right" tickLine={false} axisLine={false} tick={{ fill: '#10b981', fontSize: 12 }} domain={[0, 105]} />
                     
                     <Tooltip
                       contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.9)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)' }}
@@ -228,8 +238,28 @@ export default function Dashboard() {
                       itemStyle={{ color: '#fff' }}
                     />
 
-                    <Area yAxisId="left" type="monotone" dataKey="wpm" name="WPM" stroke="#6366f1" strokeWidth={3} fill="url(#colorWpm)" dot={{ fill: '#6366f1', stroke: '#fff', strokeWidth: 1.5, r: 4 }} activeDot={{ r: 7 }} />
-                    <Area yAxisId="right" type="monotone" dataKey="accuracy" name="Accuracy" stroke="#10b981" strokeWidth={3} fill="url(#colorAccuracy)" dot={{ fill: '#10b981', stroke: '#fff', strokeWidth: 1.5, r: 4 }} activeDot={{ r: 7 }} />
+                    <Area 
+                      yAxisId="left" 
+                      type="monotone" 
+                      dataKey="wpm" 
+                      name="WPM" 
+                      stroke="#6366f1" 
+                      strokeWidth={3} 
+                      fill="url(#colorWpm)" 
+                      dot={{ fill: '#6366f1', stroke: '#fff', strokeWidth: 1.5, r: 4 }} 
+                      activeDot={{ r: 7 }} 
+                    />
+                    <Area 
+                      yAxisId="right" 
+                      type="monotone" 
+                      dataKey="accuracy" 
+                      name="Accuracy" 
+                      stroke="#10b981" 
+                      strokeWidth={3} 
+                      fill="url(#colorAccuracy)" 
+                      dot={{ fill: '#10b981', stroke: '#fff', strokeWidth: 1.5, r: 4 }} 
+                      activeDot={{ r: 7 }} 
+                    />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -241,7 +271,7 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* ⚡ Quick Links section */}
+          {/* Quick Actions */}
           <div>
             <h2 className="text-2xl font-bold text-white mb-6">Quick Actions</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
