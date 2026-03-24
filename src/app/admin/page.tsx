@@ -10,7 +10,7 @@ import { supabase } from '@/config/supabase';
 
 interface Passage {
   id: string;
-  title: string;
+  text: string;
   language: string;
   level: string;
   created_at: string;
@@ -49,7 +49,7 @@ export default function AdminUploadPDF() {
       setLoadingPassages(true);
       const { data, error: fetchError } = await supabase
         .from('passages') // Ensure this matches your exact table name in Supabase
-        .select('id, title, language, level, created_at')
+        .select('id, text, language, level, created_at')
         .order('created_at', { ascending: false });
 
       if (fetchError) throw fetchError;
@@ -287,7 +287,7 @@ export default function AdminUploadPDF() {
                   ) : passages.length > 0 ? (
                     passages.map((p) => (
                       <tr key={p.id} className="hover:bg-white/5 transition-colors">
-                        <td className="px-6 py-4 font-semibold text-white truncate max-w-xs">{p.title}</td>
+                        <td className="px-6 py-4 font-semibold text-white truncate max-w-xs">{p.text}</td>
                         <td className="px-6 py-4 capitalize text-indigo-300">{p.language}</td>
                         <td className="px-6 py-4 capitalize text-emerald-400">{p.level}</td>
                         <td className="px-6 py-4 text-slate-400">
