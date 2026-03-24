@@ -1,12 +1,15 @@
 'use client';
 
+// Forces Next.js to pull fresh database data on every single load (bypasses Vercel cache)
+export const dynamic = 'force-dynamic';
+
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import { supabase } from '@/config/supabase';
 
-// 📊 Recharts for smooth UI area rendering
+// 📊 Glowing Area Chart imports
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface Stats {
@@ -54,7 +57,7 @@ export default function Dashboard() {
         if (data && data.length > 0) {
           const recentData = data.slice(-10);
 
-          // 🔥 FIXED: Safety checks prevent division by 0 (NaN crashes)
+          // Zero division safety checks so your dashboard never crashes on brand-new users
           const avgWPM = recentData.length > 0 
             ? recentData.reduce((sum, result) => sum + result.wpm, 0) / recentData.length 
             : 0;
@@ -66,7 +69,7 @@ export default function Dashboard() {
           setStats({
             avgWPM: Math.round(avgWPM),
             avgAccuracy: Math.round(avgAccuracy),
-            totalTests: data.length, // Lifetime test metrics
+            totalTests: data.length, // Lifetime tests
           });
 
           const formattedData = recentData.map((result) => {
@@ -122,7 +125,7 @@ export default function Dashboard() {
                 </h1>
                 <p className="text-slate-400 mt-1">{profile?.email}</p>
               </div>
-              <div className="md:text-right bg-white/5 p-4 rounded-xl border border-white/5">
+              <div className="md:text-right bg-white/5 p-4 rounded-xl border border-white/50">
                 <p className="text-xs text-slate-400 uppercase font-medium tracking-wide">Registered Mobile</p>
                 <p className="text-xl font-bold text-indigo-300 mt-1">{profile?.mobile_number}</p>
               </div>
@@ -222,7 +225,7 @@ export default function Dashboard() {
                     <CartesianGrid strokeDasharray="3 3" stroke="#ffffff" opacity={0.05} vertical={false} />
                     <XAxis dataKey="testDate" tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
                     
-                    {/* Double Y-Axes */}
+                    {/* Separate Y-Axis to prevent Speed scale from squishing accuracy percentage! */}
                     <YAxis yAxisId="left" tickLine={false} axisLine={false} tick={{ fill: '#818cf8', fontSize: 12 }} />
                     <YAxis yAxisId="right" orientation="right" tickLine={false} axisLine={false} tick={{ fill: '#34d399', fontSize: 12 }} domain={[0, 105]} />
                     
@@ -300,4 +303,4 @@ export default function Dashboard() {
       </div>
     </div>
   );
-} 
+}
