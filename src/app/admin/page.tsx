@@ -48,7 +48,7 @@ export default function AdminUploadPDF() {
     try {
       setLoadingPassages(true);
       const { data, error: fetchError } = await supabase
-        .from('typing_passages') // Ensure this matches your exact table name in Supabase
+        .from('passages') // Ensure this matches your exact table name in Supabase
         .select('id, title, language, level, created_at')
         .order('created_at', { ascending: false });
 
