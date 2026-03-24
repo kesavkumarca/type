@@ -36,12 +36,17 @@ export default function Navbar() {
       <div className="max-w-6xl mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
           
-          <Link href="/dashboard" className="text-xl font-bold tracking-tight text-white hover:text-indigo-300 transition-colors">
-            Lakshmi Technical Institute
+          <Link href="/dashboard" className="text-xl font-bold tracking-tight text-white hover:text-indigo-300 transition-colors uppercase">
+            LAKSHMI TECHNICAL INSTITUTE
           </Link>
 
           <div className="flex items-center gap-6" ref={dropdownRef}>
             
+            {/* 📊 Dashboard Button (Placed to the left of Typing Tests) */}
+            <Link href="/dashboard" className="text-white hover:bg-white/10 px-4 py-2 rounded-lg transition-colors">
+              Dashboard
+            </Link>
+
             <div className="relative">
               <button
                 onClick={() => setOpenDropdown(openDropdown === 'tests' ? null : 'tests')}
