@@ -69,47 +69,7 @@ export default function TypingTest() {
     fetchPassage();
   }, [user, loading, router, language, level]);
 
-  // Timer
-  useEffect(() => {
-    if (!testStarted || testComplete) return;
-
-    const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          setTestComplete(true);
-          clearInterval(timer);
-          submitTest();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [testStarted, testComplete]);
-
-  // Auto scroll effect when user types
-  useEffect(() => {
-    if (activeCharRef.current && passageContainerRef.current) {
-      const container = passageContainerRef.current;
-      const activeChar = activeCharRef.current;
-
-      // Calculate relative position of character within scroll container
-      const containerTop = container.scrollTop;
-      const containerHeight = container.clientHeight;
-      const charOffsetTop = activeChar.offsetTop - container.offsetTop;
-
-      // If typed character is going below view area, scroll it into view smoothly
-      if (charOffsetTop >= containerTop + containerHeight - 80) {
-        container.scrollTo({
-          top: charOffsetTop - 100, // Keeps context of a few lines above
-          behavior: 'smooth',
-        });
-      }
-    }
-  }, [userInput]);
-
-  // 🧮 Calculate Metrics
+  // 🧮 Calculate Metrics (Scoped for dynamic mark deductions)
   const calculateMetrics = useCallback(() => {
     if (!passage) return { wpm: 0, accuracy: 0, strokes: 0, correctWords: 0, mistakes: 0, marks: 0, passed: false };
 
@@ -144,20 +104,59 @@ export default function TypingTest() {
     }
     const accuracy = userInput.length > 0 ? Math.round((correctChars / userInput.length) * 100) : 0;
 
-    const baseMarks = 100 - (mistakes * 1.5);
-    const marks = Math.max(0, baseMarks);
+    // 🎯 Set Mark Deduction per Level
+    const deductionPerMistake = level.toLowerCase() === 'senior' ? 1.25 : 1.8;
+    const baseMarks = 100 - (mistakes * deductionPerMistake);
+    const marks = Math.max(0, parseFloat(baseMarks.toFixed(2))); // Clamp at 0 and round to 2 decimals
     const passed = marks >= 50; 
 
-    return { wpm, accuracy, strokes, correctWords, mistakes, marks, passed };
-  }, [passage, userInput, timeLeft]);
+    return { wpm, accuracy, strokes, correctWords, mistakes, marks, passed, deductionPerMistake };
+  }, [passage, userInput, timeLeft, level]);
 
-  // Submit test
-  const submitTest = async () => {
+  // Submit test (Moved up so the timer can run it)
+  const submitTest = useCallback(async (currentInput: string, currentTimeLeft: number) => {
     if (!user || !passage || isSubmitting) return; 
 
     setIsSubmitting(true); 
-    const metrics = calculateMetrics();
-    const elapsedSeconds = 600 - timeLeft;
+
+    // We calculate using current snapshot to avoid stale closures in timeouts
+    const strokes = currentInput.length;
+    const typedWords = currentInput.trim().split(/\s+/).filter(Boolean);
+    const targetWords = passage.text.trim().split(/\s+/).filter(Boolean);
+
+    let correctWords = 0;
+    let mistakes = 0;
+
+    targetWords.forEach((word, index) => {
+      if (index < typedWords.length) {
+        if (typedWords[index] === word) {
+          correctWords++;
+        } else {
+          mistakes++;
+        }
+      } else {
+        mistakes++;
+      }
+    });
+
+    const elapsedSeconds = 600 - currentTimeLeft;
+    const elapsedMinutes = elapsedSeconds / 60;
+    const wpm = elapsedMinutes > 0 ? Math.round(typedWords.length / elapsedMinutes) : 0;
+
+    let correctChars = 0;
+    for (let i = 0; i < Math.min(currentInput.length, passage.text.length); i++) {
+      if (currentInput[i] === passage.text[i]) {
+        correctChars++;
+      }
+    }
+    const accuracy = currentInput.length > 0 ? Math.round((correctChars / currentInput.length) * 100) : 0;
+
+    const deductionPerMistake = level.toLowerCase() === 'senior' ? 1.25 : 1.8;
+    const baseMarks = 100 - (mistakes * deductionPerMistake);
+    const marks = Math.max(0, parseFloat(baseMarks.toFixed(2)));
+    const passed = marks >= 50; 
+
+    const metrics = { wpm, accuracy, strokes, correctWords, mistakes, marks, passed, deductionPerMistake };
 
     try {
       const { error } = await supabase.from('test_results').insert([
@@ -170,7 +169,7 @@ export default function TypingTest() {
           duration_seconds: elapsedSeconds,
           language: language,
           level: level,
-          typed_text: userInput,
+          typed_text: currentInput,
         },
       ]);
 
@@ -179,13 +178,51 @@ export default function TypingTest() {
       setResults(metrics);
       setTestComplete(true);
     } catch (err) {
-      console.warn('⚠️ Supabase Error occurred. Bypassing to show results to user directly.');
+      console.warn('⚠️ Bypassing Supabase payload error to visual metric rendering.');
       setResults(metrics);
       setTestComplete(true);
     } finally {
       setIsSubmitting(false); 
     }
-  };
+  }, [user, passage, isSubmitting, language, level]);
+
+  // Timer: Auto submits exactly when time strikes zero
+  useEffect(() => {
+    if (!testStarted || testComplete) return;
+
+    const timer = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          setTestComplete(true);
+          submitTest(userInput, 0); // Forced submission with frozen context
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [testStarted, testComplete, userInput, submitTest]);
+
+  // Auto scroll effect when user types
+  useEffect(() => {
+    if (activeCharRef.current && passageContainerRef.current) {
+      const container = passageContainerRef.current;
+      const activeChar = activeCharRef.current;
+
+      const containerTop = container.scrollTop;
+      const containerHeight = container.clientHeight;
+      const charOffsetTop = activeChar.offsetTop - container.offsetTop;
+
+      if (charOffsetTop >= containerTop + containerHeight - 80) {
+        container.scrollTo({
+          top: charOffsetTop - 100, 
+          behavior: 'smooth',
+        });
+      }
+    }
+  }, [userInput]);
 
   if (pageLoading || loading) {
     return (
@@ -253,7 +290,7 @@ export default function TypingTest() {
                 <p className="text-3xl font-extrabold mt-2 text-red-400">
                   {results.mistakes}
                 </p>
-                <p className="text-[10px] text-slate-500 mt-1">-1.5 per mistake</p>
+                <p className="text-[10px] text-slate-500 mt-1">-{results.deductionPerMistake} per mistake</p>
               </div>
 
               <div className="p-5 rounded-xl bg-white/5 border border-white/5">
@@ -361,7 +398,6 @@ export default function TypingTest() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
-          {/* 📄 Auto-Scrolling Question Area */}
           <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 shadow-2xl">
             <h2 className="text-xl font-bold text-white mb-4">Original Passage</h2>
             <div 
@@ -393,13 +429,12 @@ export default function TypingTest() {
             </div>
           </div>
 
-          {/* ⌨️ User Typing Area */}
           <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 shadow-2xl">
             <h2 className="text-xl font-bold text-white mb-4">Your Typing</h2>
             <textarea
               value={userInput}
               onChange={(e) => setUserInput(e.target.value)}
-              disabled={!testStarted}
+              disabled={!testStarted || testComplete} // <-- Locks typing when timer hits zero
               autoFocus={testStarted}
               onPaste={(e) => e.preventDefault()}
               onCopy={(e) => e.preventDefault()}
@@ -415,7 +450,7 @@ export default function TypingTest() {
         {testStarted && !testComplete && (
           <div className="mt-6 flex justify-center">
             <button
-              onClick={submitTest}
+              onClick={() => submitTest(userInput, timeLeft)}
               disabled={isSubmitting} 
               className={`text-white px-8 py-3 rounded-xl font-bold transition-all duration-300 shadow-lg ${
                 isSubmitting ? 'bg-slate-600 cursor-not-allowed' : 'bg-red-600 hover:bg-red-500 hover:shadow-red-500/30'
