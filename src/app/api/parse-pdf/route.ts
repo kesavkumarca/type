@@ -46,7 +46,6 @@ export async function POST(request: Request) {
           text: extractedText,
           language,
           level,
-          stroke_limit: strokeLimit,
         },
       ]);
 
