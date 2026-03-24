@@ -36,8 +36,17 @@ export default function Navbar() {
       <div className="max-w-6xl mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
           
-          <Link href="/dashboard" className="text-xl font-bold tracking-tight text-white hover:text-indigo-300 transition-colors uppercase">
-            LAKSHMI TECHNICAL INSTITUTE
+          <Link 
+            href="/dashboard" 
+            className="flex items-center gap-3 text-xl font-bold tracking-tight text-white hover:text-indigo-300 transition-colors uppercase">
+            {/* 🖼️ Icon set to 32x32px (w-8 h-8 in Tailwind is 32px) */}
+            <img 
+              src="/my-logo.png" 
+              alt="LTI Logo" 
+              className="w-8 h-8 object-contain" 
+            />
+            
+            <span>LAKSHMI TECHNICAL INSTITUTE</span>
           </Link>
 
           <div className="flex items-center gap-6" ref={dropdownRef}>
