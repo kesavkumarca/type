@@ -54,7 +54,7 @@ export default function Dashboard() {
         if (data && data.length > 0) {
           const recentData = data.slice(-10);
 
-          // 🔥 FIXED: Standardize safety checks so dividing by 0 never yields a crash!
+          // 🔥 FIXED: Safety checks prevent division by 0 (NaN crashes)
           const avgWPM = recentData.length > 0 
             ? recentData.reduce((sum, result) => sum + result.wpm, 0) / recentData.length 
             : 0;
@@ -66,7 +66,7 @@ export default function Dashboard() {
           setStats({
             avgWPM: Math.round(avgWPM),
             avgAccuracy: Math.round(avgAccuracy),
-            totalTests: data.length, // Still shows lifetime tests!
+            totalTests: data.length, // Lifetime test metrics
           });
 
           const formattedData = recentData.map((result) => {
@@ -222,7 +222,7 @@ export default function Dashboard() {
                     <CartesianGrid strokeDasharray="3 3" stroke="#ffffff" opacity={0.05} vertical={false} />
                     <XAxis dataKey="testDate" tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
                     
-                    {/* Separate Y-Axes so Speed scale doesn't compress Accuracy Scale! */}
+                    {/* Double Y-Axes */}
                     <YAxis yAxisId="left" tickLine={false} axisLine={false} tick={{ fill: '#818cf8', fontSize: 12 }} />
                     <YAxis yAxisId="right" orientation="right" tickLine={false} axisLine={false} tick={{ fill: '#34d399', fontSize: 12 }} domain={[0, 105]} />
                     
@@ -265,7 +265,7 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* ⚡ Secondary navigation */}
+          {/* ⚡ Secondary Navigation */}
           <div>
             <h2 className="text-2xl font-bold text-white mb-6">Quick Actions</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
