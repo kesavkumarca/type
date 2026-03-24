@@ -29,6 +29,9 @@ export default function TypingTest() {
   const [results, setResults] = useState<any>(null);
   const [pageLoading, setPageLoading] = useState(true);
 
+  // 🛡️ NEW STATE: Blocks users from double clicking the submit button!
+  const [isSubmitting, setIsSubmitting] = useState(false); 
+
   // Fetch passage
   useEffect(() => {
     if (!loading && !user) {
@@ -126,10 +129,11 @@ export default function TypingTest() {
 
   // Submit test
   const submitTest = async () => {
-    if (!user || !passage) return;
+    if (!user || !passage || isSubmitting) return; // 🛡️ Stop if already submitting!
 
+    setIsSubmitting(true); // 🔒 Lock it!
     const metrics = calculateMetrics();
-    const elapsedSeconds = 600 - timeLeft; // ⏳ Find actual typing duration
+    const elapsedSeconds = 600 - timeLeft;
 
     try {
       const { error } = await supabase.from('test_results').insert([
@@ -139,7 +143,6 @@ export default function TypingTest() {
           wpm: metrics.wpm,
           accuracy: metrics.accuracy,
           strokes: metrics.strokes,
-          // ✅ NEW: Dispatching dynamic variables for your Supabase columns!
           duration_seconds: elapsedSeconds,
           language: language,
           level: level,
@@ -156,9 +159,10 @@ export default function TypingTest() {
       setTestComplete(true);
     } catch (err) {
       console.warn('⚠️ Supabase Error occurred. Bypassing to show results to user directly.');
-      
       setResults(metrics);
       setTestComplete(true);
+    } finally {
+      setIsSubmitting(false); // 🔓 Unlock it
     }
   };
 
@@ -378,9 +382,12 @@ export default function TypingTest() {
           <div className="mt-6 flex justify-center">
             <button
               onClick={submitTest}
-              className="bg-red-600 hover:bg-red-700 text-white px-8 py-3 rounded-lg font-semibold transition"
+              disabled={isSubmitting} // 🔒 Locks button in HTML
+              className={`text-white px-8 py-3 rounded-lg font-semibold transition ${
+                isSubmitting ? 'bg-gray-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'
+              }`}
             >
-              Submit Test Early
+              {isSubmitting ? 'Saving...' : 'Submit Test Early'}
             </button>
           </div>
         )}
