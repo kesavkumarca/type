@@ -128,8 +128,11 @@ export default function Dashboard() {
             </div>
           </div>
 
+          {/* ✨ Stats Grid with Hover Box Shadows and Lift */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-            <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-all duration-300 group shadow-lg">
+            
+            {/* ⚡ Average Speed (Indigo) */}
+            <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_0_50px_-12px_rgba(79,70,229,0.5)] group shadow-lg">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Average Speed</p>
@@ -148,7 +151,8 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-all duration-300 group shadow-lg">
+            {/* 🎯 Average Accuracy (Emerald) */}
+            <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_0_50px_-12px_rgba(16,185,129,0.5)] group shadow-lg">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Average Accuracy</p>
@@ -166,7 +170,8 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-all duration-300 group shadow-lg">
+            {/* 📝 Total Drills Completed (Purple) */}
+            <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_0_50px_-12px_rgba(168,85,247,0.5)] group shadow-lg">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Total Drills Completed</p>
@@ -183,6 +188,7 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
+
           </div>
 
           <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-8 mb-12 shadow-2xl">
