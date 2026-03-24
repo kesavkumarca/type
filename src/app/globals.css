@@ -23,4 +23,7 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  
+  /* Fallback chain: PNG -> SVG -> Standard cursor */
+  cursor: url('/my-cursor.png'), url('/my-cursor.svg'), auto; 
 }
