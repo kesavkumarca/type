@@ -99,10 +99,13 @@ export default function Navbar() {
             </Link>
 
             {isAdmin && (
-              <Link href="/admin" className="bg-yellow-500 hover:bg-yellow-400 text-gray-900 font-bold px-4 py-2 rounded-lg transition-colors">
-                Admin Panel
-              </Link>
-            )}
+            <Link 
+              href="/admin" 
+              className="bg-yellow-500 hover:bg-yellow-400 text-gray-900 font-bold px-4 h-10 flex items-center justify-center rounded-lg transition-colors whitespace-nowrap shadow-lg hover:shadow-yellow-500/20"
+            >
+              Admin Panel
+            </Link>
+          )}
 
             <div className="relative">
               <button
