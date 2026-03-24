@@ -33,9 +33,15 @@ export default function TypingTest() {
   // 🛡️ Track submit locks
   const [isSubmitting, setIsSubmitting] = useState(false); 
 
-  // 📜 Auto Scroll Refs
+  // 📜 References to bypass stale closures
   const passageContainerRef = useRef<HTMLDivElement>(null);
   const activeCharRef = useRef<HTMLSpanElement>(null);
+  const userInputRef = useRef(''); // Keeps track of live input for the timer
+
+  // Keep the ref updated as the user types
+  useEffect(() => {
+    userInputRef.current = userInput;
+  }, [userInput]);
 
   // Fetch passage
   useEffect(() => {
@@ -104,22 +110,20 @@ export default function TypingTest() {
     }
     const accuracy = userInput.length > 0 ? Math.round((correctChars / userInput.length) * 100) : 0;
 
-    // 🎯 Set Mark Deduction per Level
     const deductionPerMistake = level.toLowerCase() === 'senior' ? 1.25 : 1.8;
     const baseMarks = 100 - (mistakes * deductionPerMistake);
-    const marks = Math.max(0, parseFloat(baseMarks.toFixed(2))); // Clamp at 0 and round to 2 decimals
+    const marks = Math.max(0, parseFloat(baseMarks.toFixed(2))); 
     const passed = marks >= 50; 
 
     return { wpm, accuracy, strokes, correctWords, mistakes, marks, passed, deductionPerMistake };
   }, [passage, userInput, timeLeft, level]);
 
-  // Submit test (Moved up so the timer can run it)
+  // Submit test (Scoped with single ref execution to avoid closures)
   const submitTest = useCallback(async (currentInput: string, currentTimeLeft: number) => {
     if (!user || !passage || isSubmitting) return; 
 
     setIsSubmitting(true); 
 
-    // We calculate using current snapshot to avoid stale closures in timeouts
     const strokes = currentInput.length;
     const typedWords = currentInput.trim().split(/\s+/).filter(Boolean);
     const targetWords = passage.text.trim().split(/\s+/).filter(Boolean);
@@ -178,7 +182,7 @@ export default function TypingTest() {
       setResults(metrics);
       setTestComplete(true);
     } catch (err) {
-      console.warn('⚠️ Bypassing Supabase payload error to visual metric rendering.');
+      console.warn('⚠️ Saved metrics locally without Supabase persistence.');
       setResults(metrics);
       setTestComplete(true);
     } finally {
@@ -186,7 +190,7 @@ export default function TypingTest() {
     }
   }, [user, passage, isSubmitting, language, level]);
 
-  // Timer: Auto submits exactly when time strikes zero
+  // 🕒 Fixed Timer: Independent of typing keystrokes
   useEffect(() => {
     if (!testStarted || testComplete) return;
 
@@ -195,7 +199,8 @@ export default function TypingTest() {
         if (prev <= 1) {
           clearInterval(timer);
           setTestComplete(true);
-          submitTest(userInput, 0); // Forced submission with frozen context
+          // Grab the live text snapshot using the mutable Ref
+          submitTest(userInputRef.current, 0); 
           return 0;
         }
         return prev - 1;
@@ -203,9 +208,10 @@ export default function TypingTest() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [testStarted, testComplete, userInput, submitTest]);
+    // 🔍 Removed `userInput` and `submitTest` dependencies to keep the interval uninterrupted!
+  }, [testStarted, testComplete]);
 
-  // Auto scroll effect when user types
+  // Auto scroll effect
   useEffect(() => {
     if (activeCharRef.current && passageContainerRef.current) {
       const container = passageContainerRef.current;
@@ -434,7 +440,7 @@ export default function TypingTest() {
             <textarea
               value={userInput}
               onChange={(e) => setUserInput(e.target.value)}
-              disabled={!testStarted || testComplete} // <-- Locks typing when timer hits zero
+              disabled={!testStarted || testComplete}
               autoFocus={testStarted}
               onPaste={(e) => e.preventDefault()}
               onCopy={(e) => e.preventDefault()}
