@@ -17,7 +17,7 @@ export default function Home() {
         <nav className="bg-white/5 backdrop-blur-md border-b border-white/10 shadow-lg">
           <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
             <h1 className="text-xl font-bold tracking-tight text-white hover:text-indigo-300 transition-colors">
-              Lakshmi Tech
+              Lakshmi Technical Institute
             </h1>
             <div className="flex gap-4">
               <Link href="/login" className="text-white hover:bg-white/10 px-4 py-2 rounded-lg transition-colors">

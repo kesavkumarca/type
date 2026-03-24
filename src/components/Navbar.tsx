@@ -37,7 +37,7 @@ export default function Navbar() {
         <div className="flex items-center justify-between">
           
           <Link href="/dashboard" className="text-xl font-bold tracking-tight text-white hover:text-indigo-300 transition-colors">
-            Lakshmi Tech
+            Lakshmi Technical Institute
           </Link>
 
           <div className="flex items-center gap-6" ref={dropdownRef}>
