@@ -1,19 +1,26 @@
 'use client';
 
+import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
-// 🛠️ Importing your UI kit (Ensuring correct pathing)
-import { Navbar as CustomNavbar, NavbarItem, NavbarSection } from '@/components/navbar';
-import { Dropdown, DropdownButton, DropdownItem, DropdownMenu } from '@/components/dropdown';
-
-// 🎨 Heroicons integration
-import { ChevronDownIcon } from '@heroicons/react/16/solid';
-
 export default function Navbar() {
   const { user, profile, isAdmin, logOut } = useAuth();
   const router = useRouter();
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setOpenDropdown(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleLogOut = async () => {
     try {
@@ -26,83 +33,111 @@ export default function Navbar() {
 
   return (
     <nav className="bg-[#0b0f19] text-white border-b border-white/5 relative z-50">
-      <div className="max-w-6xl mx-auto px-4">
-        <CustomNavbar>
+      <div className="max-w-6xl mx-auto px-4 py-4">
+        <div className="flex items-center justify-between">
           
-          {/* 🏷️ Left Side: Logo */}
-          <Link href="/dashboard" aria-label="Lakshmi Tech Institute" className="text-xl font-bold tracking-tight text-white hover:text-indigo-300 transition-colors">
+          <Link href="/dashboard" className="text-xl font-bold tracking-tight text-white hover:text-indigo-300 transition-colors">
             Lakshmi Tech
           </Link>
 
-          {/* 🛰️ Middle: Navigation Core */}
-          <NavbarSection>
+          <div className="flex items-center gap-6" ref={dropdownRef}>
             
-            <Dropdown>
-              <DropdownButton outline className="text-white hover:bg-white/10 transition-colors rounded-lg flex items-center gap-1">
+            <div className="relative">
+              <button
+                onClick={() => setOpenDropdown(openDropdown === 'tests' ? null : 'tests')}
+                className="text-white hover:bg-white/10 px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+              >
                 Typing Tests
-                <ChevronDownIcon className="size-4 text-slate-400" />
-              </DropdownButton>
-              <DropdownMenu className="bg-[#111827] border border-white/10 shadow-2xl rounded-xl mt-2 w-64">
-                <div className="px-4 py-2 border-b border-white/5">
-                  <span className="text-xs font-semibold tracking-wider text-indigo-400 uppercase">English</span>
-                </div>
-                <DropdownItem href="/typing-test/english/junior" className="text-white hover:bg-white/5 text-sm">
-                  Junior (30 WPM / 1500)
-                </DropdownItem>
-                <DropdownItem href="/typing-test/english/senior" className="text-white hover:bg-white/5 text-sm">
-                  Senior (45 WPM / 2250)
-                </DropdownItem>
-                
-                <div className="px-4 py-2 border-t border-b border-white/5 mt-1">
-                  <span className="text-xs font-semibold tracking-wider text-indigo-400 uppercase">Tamil</span>
-                </div>
-                <DropdownItem href="/typing-test/tamil/junior" className="text-white hover:bg-white/5 text-sm">
-                  Junior (30 WPM / 1500)
-                </DropdownItem>
-                <DropdownItem href="/typing-test/tamil/senior" className="text-white hover:bg-white/5 text-sm">
-                  Senior (45 WPM / 2250)
-                </DropdownItem>
-              </DropdownMenu>
-            </Dropdown>
+                <svg
+                  className={`w-4 h-4 text-slate-400 transition-transform ${openDropdown === 'tests' ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
 
-            <NavbarItem href="/leaderboard" className="text-white hover:bg-white/10 rounded-lg transition-colors">
+              {openDropdown === 'tests' && (
+                <div className="absolute top-full mt-2 bg-[#111827] border border-white/10 rounded-xl shadow-2xl py-2 w-64 z-50">
+                  <div>
+                    <p className="px-4 py-2 text-xs font-semibold tracking-wider text-indigo-400 uppercase">English</p>
+                    <Link href="/typing-test/english/junior" className="block px-4 py-2 text-sm text-white hover:bg-white/5 transition-colors">
+                      Junior (30 WPM / 1500)
+                    </Link>
+                    <Link href="/typing-test/english/senior" className="block px-4 py-2 text-sm text-white hover:bg-white/5 transition-colors">
+                      Senior (45 WPM / 2250)
+                    </Link>
+                  </div>
+
+                  <hr className="my-2 border-white/5" />
+
+                  <div>
+                    <p className="px-4 py-2 text-xs font-semibold tracking-wider text-indigo-400 uppercase">Tamil</p>
+                    <Link href="/typing-test/tamil/junior" className="block px-4 py-2 text-sm text-white hover:bg-white/5 transition-colors">
+                      Junior (30 WPM / 1500)
+                    </Link>
+                    <Link href="/typing-test/tamil/senior" className="block px-4 py-2 text-sm text-white hover:bg-white/5 transition-colors">
+                      Senior (45 WPM / 2250)
+                    </Link>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <Link href="/leaderboard" className="text-white hover:bg-white/10 px-4 py-2 rounded-lg transition-colors">
               Leaderboard
-            </NavbarItem>
+            </Link>
 
-            <NavbarItem href="/contact" className="text-white hover:bg-white/10 rounded-lg transition-colors">
+            <Link href="/contact" className="text-white hover:bg-white/10 px-4 py-2 rounded-lg transition-colors">
               Contact
-            </NavbarItem>
+            </Link>
 
             {isAdmin && (
-              <NavbarItem href="/admin" className="bg-yellow-500 hover:bg-yellow-400 text-gray-900 font-bold rounded-lg px-3 py-1.5 transition-colors">
+              <Link href="/admin" className="bg-yellow-500 hover:bg-yellow-400 text-gray-900 font-bold px-4 py-2 rounded-lg transition-colors">
                 Admin Panel
-              </NavbarItem>
+              </Link>
             )}
-          </NavbarSection>
 
-          {/* 👤 Right Side: Profile */}
-          <NavbarSection>
-            <Dropdown>
-              <DropdownButton outline className="text-white hover:bg-white/10 transition-colors rounded-lg flex items-center gap-1">
+            <div className="relative">
+              <button
+                onClick={() => setOpenDropdown(openDropdown === 'profile' ? null : 'profile')}
+                className="text-white hover:bg-white/10 px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+              >
                 {profile?.full_name || 'Account'}
-                <ChevronDownIcon className="size-4 text-slate-400" />
-              </DropdownButton>
-              <DropdownMenu className="bg-[#111827] border border-white/10 shadow-2xl rounded-xl mt-2 w-56">
-                <div className="px-4 py-3 border-b border-white/10">
-                  <p className="font-semibold text-sm text-white truncate">{profile?.full_name || 'Typist'}</p>
-                  <p className="text-xs text-slate-400 truncate">{user?.email}</p>
-                </div>
-                <DropdownItem href="/profile" className="text-white hover:bg-white/5 text-sm flex items-center mt-1">
-                  My Profile
-                </DropdownItem>
-                <DropdownItem onClick={handleLogOut} className="text-red-400 hover:bg-red-500/10 font-semibold text-sm cursor-pointer mt-1">
-                  Log Out
-                </DropdownItem>
-              </DropdownMenu>
-            </Dropdown>
-          </NavbarSection>
+                <svg
+                  className={`w-4 h-4 text-slate-400 transition-transform ${openDropdown === 'profile' ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
 
-        </CustomNavbar>
+              {openDropdown === 'profile' && (
+                <div className="absolute top-full mt-2 bg-[#111827] border border-white/10 rounded-xl shadow-2xl py-2 w-56 z-50 right-0">
+                  <div className="px-4 py-3 border-b border-white/10">
+                    <p className="font-semibold text-sm text-white truncate">{profile?.full_name || 'Typist'}</p>
+                    <p className="text-xs text-slate-400 truncate">{user?.email}</p>
+                  </div>
+                  
+                  <Link href="/profile" className="block px-4 py-2 text-sm text-white hover:bg-white/5 transition-colors">
+                    My Profile
+                  </Link>
+
+                  <button
+                    onClick={handleLogOut}
+                    className="w-full text-left px-4 py-2 text-sm text-red-400 font-semibold hover:bg-red-500/10 transition-colors"
+                  >
+                    Log Out
+                  </button>
+                </div>
+              )}
+            </div>
+
+          </div>
+        </div>
       </div>
     </nav>
   );
