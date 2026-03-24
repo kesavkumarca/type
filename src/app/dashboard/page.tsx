@@ -70,7 +70,7 @@ export default function Dashboard() {
             totalTests: data.length, 
           });
 
-          const formattedData = recentData.map((result) => {
+          const formattedData = recentData.map((result: any) => {
             const dateObj = new Date(result.created_at);
             return {
               testDate: dateObj.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }),
