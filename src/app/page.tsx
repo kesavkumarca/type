@@ -41,7 +41,7 @@ export default function Home() {
               Authorized Typing Master Center
             </span>
             <h2 className="text-6xl font-extrabold mb-6 text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-300">
-              Master Your Typing Skills
+              Lakshmi Technical Institute
             </h2>
             <p className="text-xl mb-8 text-slate-400 max-w-2xl mx-auto">
               Join Lakshmi Technical Institute's typing test platform and improve your speed and accuracy metrics.
