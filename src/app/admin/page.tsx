@@ -8,289 +8,181 @@ import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import { supabase } from '@/config/supabase';
 
-// 📊 Area Chart imports
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-
-interface Stats {
-  avgWPM: number;
-  avgAccuracy: number;
-  totalTests: number;
-}
-
-interface GraphData {
-  testDate: string;
-  wpm: number;
-  accuracy: number;
-}
-
-export default function Dashboard() {
+export default function AdminPassages() {
   const router = useRouter();
-  const { user, profile, loading } = useAuth();
-  const [stats, setStats] = useState<Stats>({
-    avgWPM: 0,
-    avgAccuracy: 0,
-    totalTests: 0,
-  });
-  const [graphData, setGraphData] = useState<GraphData[]>([]);
-  const [statsLoading, setStatsLoading] = useState(true);
+  const { user, isAdmin, loading } = useAuth();
 
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  // Form states
+  const [language, setLanguage] = useState<'english' | 'tamil'>('english');
+  const [level, setLevel] = useState<'junior' | 'senior'>('junior');
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+
+  // 🛡️ Wait for load to finish so you don't get booted to dashboard
   useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login');
-    }
-  }, [user, loading, router]);
-
-  useEffect(() => {
-    const fetchStats = async () => {
-      if (!user) return;
-
-      try {
-        const { data, error } = await supabase
-          .from('test_results')
-          .select('wpm, accuracy, created_at')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: true });
-
-        if (error) throw error;
-
-        if (data && data.length > 0) {
-          const recentData = data.slice(-10);
-
-          // 🛡️ Zero division safety checks so your dashboard never crashes on brand-new users
-          const avgWPM = recentData.length > 0 
-            ? recentData.reduce((sum, result) => sum + result.wpm, 0) / recentData.length 
-            : 0;
-
-          const avgAccuracy = recentData.length > 0 
-            ? recentData.reduce((sum, result) => sum + result.accuracy, 0) / recentData.length 
-            : 0;
-
-          setStats({
-            avgWPM: Math.round(avgWPM),
-            avgAccuracy: Math.round(avgAccuracy),
-            totalTests: data.length, 
-          });
-
-          const formattedData = recentData.map((result) => {
-            const dateObj = new Date(result.created_at);
-            return {
-              testDate: dateObj.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }),
-              wpm: result.wpm,
-              accuracy: result.accuracy,
-            };
-          });
-
-          setGraphData(formattedData);
-        }
-      } catch (err) {
-        console.error('Error fetching stats:', err);
-      } finally {
-        setStatsLoading(false);
+    if (loading === false) {
+      if (isAdmin === false) {
+        router.push('/dashboard');
       }
-    };
+    }
+  }, [isAdmin, loading, router]);
 
-    fetchStats();
-  }, [user]);
+  const strokeLimit = level === 'junior' ? 1500 : 2250;
+  const currentStrokes = content.length;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSuccess(null);
+
+    if (!title || !content) {
+      setError('Please fill in both the title and text content.');
+      return;
+    }
+
+    setUploading(true);
+
+    try {
+      const { error: insertError } = await supabase
+        .from('typing_passages') // Ensure this matches your Supabase table name
+        .insert([
+          {
+            title,
+            content,
+            language,
+            level,
+            stroke_limit: strokeLimit,
+            created_by: user?.id,
+          },
+        ]);
+
+      if (insertError) throw insertError;
+
+      setSuccess(`Passage added successfully for ${language} ${level}!`);
+      setTitle('');
+      setContent('');
+    } catch (err: any) {
+      setError(err.message || 'Failed to upload passage');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0b0f19] flex items-center justify-center">
-        <div className="text-xl text-slate-400 animate-pulse">Loading Dashboard...</div>
+        <div className="text-xl text-slate-400 animate-pulse">Loading Admin Gate...</div>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-[#0b0f19] text-white relative overflow-hidden">
-      {/* 🌌 Atmospheric Glow Blobs */}
+      
+      {/* 🔮 Aesthetic Glowing Background Orbs */}
       <div className="absolute top-0 -left-1/4 w-96 h-96 bg-indigo-600 rounded-full filter blur-[120px] opacity-20 pointer-events-none" />
       <div className="absolute bottom-0 -right-1/4 w-96 h-96 bg-emerald-600 rounded-full filter blur-[120px] opacity-10 pointer-events-none" />
-      <div className="absolute top-1/3 right-1/4 w-64 h-64 bg-purple-600 rounded-full filter blur-[100px] opacity-10 pointer-events-none" />
 
       <div className="relative z-10">
         <Navbar />
 
-        <div className="max-w-6xl mx-auto px-4 py-12">
+        <div className="max-w-4xl mx-auto px-4 py-12">
           
-          {/* 👤 Profile Glass Panel */}
-          <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 mb-8 shadow-2xl">
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-              <div>
-                <span className="text-xs font-semibold tracking-wider text-indigo-400 uppercase mb-1 block">
-                  Student Profile
-                </span>
-                <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-300">
-                  {profile?.full_name || 'Welcome Back!'}
-                </h1>
-                <p className="text-slate-400 mt-1">{profile?.email}</p>
-              </div>
-              <div className="md:text-right bg-white/5 p-4 rounded-xl border border-white/5">
-                <p className="text-xs text-slate-400 uppercase font-medium tracking-wide">Registered Mobile</p>
-                <p className="text-xl font-bold text-indigo-300 mt-1">{profile?.mobile_number}</p>
-              </div>
-            </div>
+          <div className="mb-12">
+            <span className="text-xs font-semibold tracking-wider text-indigo-400 uppercase mb-1 block">
+              Test Syllabus Master
+            </span>
+            <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-300">
+              Add New Typing Passage
+            </h1>
+            <p className="text-slate-400 mt-1">Populate standardized text parameters for your students</p>
           </div>
 
-          {/* 📊 Score Grid Mechanism */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+          <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl">
             
-            {/* Speed Widget */}
-            <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-all duration-300 group shadow-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Average Speed</p>
-                  <div className="flex items-baseline space-x-2 mt-2">
-                    <p className="text-4xl font-extrabold text-white group-hover:text-indigo-300 transition-colors">
-                      {statsLoading ? '-' : stats.avgWPM}
-                    </p>
-                    <span className="text-sm text-slate-400">WPM</span>
-                  </div>
-                </div>
-                <div className="bg-indigo-500/20 p-3 rounded-xl border border-indigo-500/30 group-hover:scale-110 transition-transform">
-                  <svg className="w-8 h-8 text-indigo-400" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z" />
-                  </svg>
-                </div>
-              </div>
-            </div>
-
-            {/* Precision Widget */}
-            <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-all duration-300 group shadow-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Average Accuracy</p>
-                  <div className="flex items-baseline space-x-2 mt-2">
-                    <p className="text-4xl font-extrabold text-white group-hover:text-emerald-300 transition-colors">
-                      {statsLoading ? '-' : `${stats.avgAccuracy}%`}
-                    </p>
-                  </div>
-                </div>
-                <div className="bg-emerald-500/20 p-3 rounded-xl border border-emerald-500/30 group-hover:scale-110 transition-transform">
-                  <svg className="w-8 h-8 text-emerald-400" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" />
-                  </svg>
-                </div>
-              </div>
-            </div>
-
-            {/* Total Tests Widget */}
-            <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-all duration-300 group shadow-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Total Tests Taken</p>
-                  <div className="flex items-baseline space-x-2 mt-2">
-                    <p className="text-4xl font-extrabold text-white group-hover:text-purple-300 transition-colors">
-                      {statsLoading ? '-' : stats.totalTests}
-                    </p>
-                  </div>
-                </div>
-                <div className="bg-purple-500/20 p-3 rounded-xl border border-purple-500/30 group-hover:scale-110 transition-transform">
-                  <svg className="w-8 h-8 text-purple-400" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
-                  </svg>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* 📈 Neon Visual Performance Chart with Unified Colors */}
-          <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-8 mb-12 shadow-2xl">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-              <div>
-                <h2 className="text-2xl font-bold tracking-tight text-white">Metrics Over Time</h2>
-                <p className="text-sm text-slate-400 mt-1">Breakdown of speed vs accuracy over your last 10 tests</p>
-              </div>
-              <div className="flex space-x-6 text-xs font-semibold">
-                <span className="flex items-center">
-                  <span className="w-3 h-3 bg-[#6366f1] rounded-full mr-2 shadow-[0_0_8px_#6366f1]"></span> 
-                  Speed
-                </span>
-                <span className="flex items-center">
-                  <span className="w-3 h-3 bg-[#10b981] rounded-full mr-2 shadow-[0_0_8px_#10b981]"></span> 
-                  Accuracy
-                </span>
-              </div>
-            </div>
-
-            {graphData.length > 0 ? (
-              <div className="h-96">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={graphData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="colorWpm" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4} />
-                        <stop offset="95%" stopColor="#6366f1" stopOpacity={0.0} />
-                      </linearGradient>
-                      <linearGradient id="colorAccuracy" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
-                        <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
-                      </linearGradient>
-                    </defs>
-
-                    <CartesianGrid strokeDasharray="3 3" stroke="#ffffff" opacity={0.05} vertical={false} />
-                    <XAxis dataKey="testDate" tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
-                    <YAxis yAxisId="left" tickLine={false} axisLine={false} tick={{ fill: '#6366f1', fontSize: 12 }} />
-                    <YAxis yAxisId="right" orientation="right" tickLine={false} axisLine={false} tick={{ fill: '#10b981', fontSize: 12 }} domain={[0, 105]} />
-                    
-                    <Tooltip
-                      contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.9)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)' }}
-                      labelStyle={{ fontWeight: 'bold', color: '#f8fafc' }}
-                      itemStyle={{ color: '#fff' }}
-                    />
-
-                    <Area 
-                      yAxisId="left" 
-                      type="monotone" 
-                      dataKey="wpm" 
-                      name="WPM" 
-                      stroke="#6366f1" 
-                      strokeWidth={3} 
-                      fill="url(#colorWpm)" 
-                      dot={{ fill: '#6366f1', stroke: '#fff', strokeWidth: 1.5, r: 4 }} 
-                      activeDot={{ r: 7 }} 
-                    />
-                    <Area 
-                      yAxisId="right" 
-                      type="monotone" 
-                      dataKey="accuracy" 
-                      name="Accuracy" 
-                      stroke="#10b981" 
-                      strokeWidth={3} 
-                      fill="url(#colorAccuracy)" 
-                      dot={{ fill: '#10b981', stroke: '#fff', strokeWidth: 1.5, r: 4 }} 
-                      activeDot={{ r: 7 }} 
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-64 text-slate-500">
-                <p className="text-lg">No metrics available yet.</p>
-                <p className="text-sm mt-1">Take your first typing test to light up the grid!</p>
+            {error && (
+              <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
+                ⚠️ {error}
               </div>
             )}
-          </div>
 
-          {/* Quick Actions */}
-          <div>
-            <h2 className="text-2xl font-bold text-white mb-6">Quick Actions</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <a href="/typing-test/english/junior" className="group bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white p-6 rounded-2xl shadow-lg transition-all duration-300 font-bold flex items-center justify-between">
-                <div>
-                  <p className="text-xl">Launch Practice Test</p>
-                  <p className="text-xs font-normal text-indigo-200 mt-1">Improve your English WPM and precision</p>
-                </div>
-                <div className="p-2 bg-white/10 rounded-lg group-hover:translate-x-1 transition-transform">→</div>
-              </a>
+            {success && (
+              <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-emerald-400 text-sm">
+                🎉 {success}
+              </div>
+            )}
 
-              <a href="/leaderboard" className="group bg-white/5 backdrop-blur-md border border-white/10 hover:bg-white/10 text-white p-6 rounded-2xl shadow-lg transition-all duration-300 font-bold flex items-center justify-between">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              
+              {/* Dropdown Options */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <p className="text-xl">View Leaderboards</p>
-                  <p className="text-xs font-normal text-slate-400 mt-1">Check how you compare against peers</p>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Language</label>
+                  <select
+                    value={language}
+                    onChange={(e) => setLanguage(e.target.value as 'english' | 'tamil')}
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-white"
+                  >
+                    <option value="english" className="bg-[#111827]">English</option>
+                    <option value="tamil" className="bg-[#111827]">Tamil</option>
+                  </select>
                 </div>
-                <div className="p-2 bg-white/10 rounded-lg group-hover:translate-x-1 transition-transform">→</div>
-              </a>
-            </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Difficulty Grade</label>
+                  <select
+                    value={level}
+                    onChange={(e) => setLevel(e.target.value as 'junior' | 'senior')}
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-white"
+                  >
+                    <option value="junior" className="bg-[#111827]">Junior (30 WPM - 1500 Strokes)</option>
+                    <option value="senior" className="bg-[#111827]">Senior (45 WPM - 2250 Strokes)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Title Input */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Passage Title / Reference Number</label>
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="e.g., English Junior Test Set 1"
+                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-white placeholder-slate-500"
+                />
+              </div>
+
+              {/* Character Textarea */}
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-sm font-medium text-slate-300">Typing Content</label>
+                  <span className={`text-xs font-semibold ${currentStrokes > strokeLimit ? 'text-red-400' : 'text-indigo-400'}`}>
+                    Strokes: {currentStrokes} / {strokeLimit}
+                  </span>
+                </div>
+                <textarea
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  rows={10}
+                  placeholder="Paste your standardized typing passage text here..."
+                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-white placeholder-slate-500 font-mono tracking-wide leading-relaxed"
+                />
+              </div>
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={uploading}
+                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 rounded-xl shadow-lg transition-all duration-300 hover:shadow-indigo-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {uploading ? 'Uploading to Database...' : 'Add Passage 🚀'}
+              </button>
+            </form>
           </div>
         </div>
       </div>
