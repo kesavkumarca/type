@@ -54,11 +54,11 @@ export default function Home() {
             </Link>
           </div>
 
-          {/* ✨ Feature Glass Cards Grid (Now with Glowing Backgrounds) */}
+          {/* ✨ Feature Glass Cards Grid (Now with Glowing Backgrounds & Drop Shadows) */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-16">
             
-            {/* ⚡ Real-Time Metrics (Indigo Glow) */}
-            <div className="relative bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-8 hover:bg-white/10 transition-all duration-300 shadow-xl group overflow-hidden">
+            {/* ⚡ Real-Time Metrics (Indigo Glow Shadow) */}
+            <div className="relative bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-8 hover:bg-white/10 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_0_50px_-12px_rgba(79,70,229,0.5)] shadow-xl group overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/20 to-transparent opacity-30 group-hover:opacity-60 transition-opacity duration-500" />
               <div className="relative z-10">
                 <div className="text-5xl mb-4 group-hover:scale-110 transition-transform duration-300">⚡</div>
@@ -69,8 +69,8 @@ export default function Home() {
               </div>
             </div>
 
-            {/* 🌍 Multiple Languages (Emerald Glow) */}
-            <div className="relative bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-8 hover:bg-white/10 transition-all duration-300 shadow-xl group overflow-hidden">
+            {/* 🌍 Multiple Languages (Emerald Glow Shadow) */}
+            <div className="relative bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-8 hover:bg-white/10 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_0_50px_-12px_rgba(16,185,129,0.5)] shadow-xl group overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/20 to-transparent opacity-30 group-hover:opacity-60 transition-opacity duration-500" />
               <div className="relative z-10">
                 <div className="text-5xl mb-4 group-hover:scale-110 transition-transform duration-300">🌍</div>
@@ -81,8 +81,8 @@ export default function Home() {
               </div>
             </div>
 
-            {/* 🏆 Global Ranking (Gold/Trophy RGB Glow) */}
-            <div className="relative bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-8 hover:bg-white/10 transition-all duration-300 shadow-xl group overflow-hidden">
+            {/* 🏆 Global Ranking (Gold/Trophy RGB Glow Shadow) */}
+            <div className="relative bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-8 hover:bg-white/10 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_0_50px_-12px_rgba(218,165,32,0.5)] shadow-xl group overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-[rgb(218,165,32)]/20 to-transparent opacity-30 group-hover:opacity-60 transition-opacity duration-500" />
               <div className="relative z-10">
                 <div className="text-5xl mb-4 group-hover:scale-110 transition-transform duration-300">🏆</div>
