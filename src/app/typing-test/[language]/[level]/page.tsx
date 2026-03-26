@@ -75,40 +75,38 @@ export default function TypingTest() {
     fetchPassage();
   }, [user, loading, router, language, level]);
 
-  // 🧮 Calculate Metrics (Scoped for dynamic mark deductions)
+  // 🧮 WORD-BASED Metric Calculation
   const calculateMetrics = useCallback(() => {
     if (!passage) return { wpm: 0, accuracy: 0, strokes: 0, correctWords: 0, mistakes: 0, marks: 0, passed: false };
 
     const strokes = userInput.length;
-    const typedWords = userInput.trim().split(/\s+/).filter(Boolean);
+    
+    // ✂️ Convert both passages into clean word arrays (ignores duplicate spaces)
     const targetWords = passage.text.trim().split(/\s+/).filter(Boolean);
+    const typedWords = userInput.trim().split(/\s+/).filter(Boolean);
 
     let correctWords = 0;
     let mistakes = 0;
 
-    targetWords.forEach((word, index) => {
-      if (index < typedWords.length) {
-        if (typedWords[index] === word) {
+    // 🔍 Loop through typed words and compare them word-for-word
+    typedWords.forEach((word, index) => {
+      if (index < targetWords.length) {
+        if (word === targetWords[index]) {
           correctWords++;
         } else {
           mistakes++;
         }
-      } else {
-        mistakes++;
       }
     });
 
     const elapsedSeconds = 600 - timeLeft;
     const elapsedMinutes = elapsedSeconds / 60;
-    const wpm = elapsedMinutes > 0 ? Math.round(typedWords.length / elapsedMinutes) : 0;
+    
+    // Standard WPM formula using average word length (total strokes / 5) over minutes
+    const wpm = elapsedMinutes > 0 ? Math.round((strokes / 5) / elapsedMinutes) : 0;
 
-    let correctChars = 0;
-    for (let i = 0; i < Math.min(userInput.length, passage.text.length); i++) {
-      if (userInput[i] === passage.text[i]) {
-        correctChars++;
-      }
-    }
-    const accuracy = userInput.length > 0 ? Math.round((correctChars / userInput.length) * 100) : 0;
+    // Word-based accuracy
+    const accuracy = typedWords.length > 0 ? Math.round((correctWords / typedWords.length) * 100) : 0;
 
     const deductionPerMistake = level.toLowerCase() === 'senior' ? 1.25 : 1.8;
     const baseMarks = 100 - (mistakes * deductionPerMistake);
@@ -125,35 +123,26 @@ export default function TypingTest() {
     setIsSubmitting(true); 
 
     const strokes = currentInput.length;
-    const typedWords = currentInput.trim().split(/\s+/).filter(Boolean);
     const targetWords = passage.text.trim().split(/\s+/).filter(Boolean);
+    const typedWords = currentInput.trim().split(/\s+/).filter(Boolean);
 
     let correctWords = 0;
     let mistakes = 0;
 
-    targetWords.forEach((word, index) => {
-      if (index < typedWords.length) {
-        if (typedWords[index] === word) {
+    typedWords.forEach((word, index) => {
+      if (index < targetWords.length) {
+        if (word === targetWords[index]) {
           correctWords++;
         } else {
           mistakes++;
         }
-      } else {
-        mistakes++;
       }
     });
 
     const elapsedSeconds = 600 - currentTimeLeft;
     const elapsedMinutes = elapsedSeconds / 60;
-    const wpm = elapsedMinutes > 0 ? Math.round(typedWords.length / elapsedMinutes) : 0;
-
-    let correctChars = 0;
-    for (let i = 0; i < Math.min(currentInput.length, passage.text.length); i++) {
-      if (currentInput[i] === passage.text[i]) {
-        correctChars++;
-      }
-    }
-    const accuracy = currentInput.length > 0 ? Math.round((correctChars / currentInput.length) * 100) : 0;
+    const wpm = elapsedMinutes > 0 ? Math.round((strokes / 5) / elapsedMinutes) : 0;
+    const accuracy = typedWords.length > 0 ? Math.round((correctWords / typedWords.length) * 100) : 0;
 
     const deductionPerMistake = level.toLowerCase() === 'senior' ? 1.25 : 1.8;
     const baseMarks = 100 - (mistakes * deductionPerMistake);
@@ -190,7 +179,7 @@ export default function TypingTest() {
     }
   }, [user, passage, isSubmitting, language, level]);
 
-  // 🕒 Fixed Timer: Independent of typing keystrokes
+  // 🕒 Fixed Timer
   useEffect(() => {
     if (!testStarted || testComplete) return;
 
@@ -199,7 +188,6 @@ export default function TypingTest() {
         if (prev <= 1) {
           clearInterval(timer);
           setTestComplete(true);
-          // Grab the live text snapshot using the mutable Ref
           submitTest(userInputRef.current, 0); 
           return 0;
         }
@@ -208,8 +196,7 @@ export default function TypingTest() {
     }, 1000);
 
     return () => clearInterval(timer);
-    // 🔍 Removed `userInput` and `submitTest` dependencies to keep the interval uninterrupted!
-  }, [testStarted, testComplete]);
+  }, [testStarted, testComplete, submitTest]);
 
   // Auto scroll effect
   useEffect(() => {
