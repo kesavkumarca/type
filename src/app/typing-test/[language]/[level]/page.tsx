@@ -35,7 +35,7 @@ export default function TypingTest() {
 
   // 📜 References to bypass stale closures
   const passageContainerRef = useRef<HTMLDivElement>(null);
-  const activeCharRef = useRef<HTMLSpanElement>(null);
+  const activeWordRef = useRef<HTMLSpanElement>(null);
   const userInputRef = useRef(''); // Keeps track of live input for the timer
 
   // Keep the ref updated as the user types
@@ -81,14 +81,13 @@ export default function TypingTest() {
 
     const strokes = userInput.length;
     
-    // ✂️ Convert both passages into clean word arrays (ignores duplicate spaces)
+    // Split text into words (ignores extra spaces)
     const targetWords = passage.text.trim().split(/\s+/).filter(Boolean);
     const typedWords = userInput.trim().split(/\s+/).filter(Boolean);
 
     let correctWords = 0;
     let mistakes = 0;
 
-    // 🔍 Loop through typed words and compare them word-for-word
     typedWords.forEach((word, index) => {
       if (index < targetWords.length) {
         if (word === targetWords[index]) {
@@ -102,10 +101,9 @@ export default function TypingTest() {
     const elapsedSeconds = 600 - timeLeft;
     const elapsedMinutes = elapsedSeconds / 60;
     
-    // Standard WPM formula using average word length (total strokes / 5) over minutes
+    // Traditional typing speed formula: Total Strokes / 5 (average word) / Elapsed Minutes
     const wpm = elapsedMinutes > 0 ? Math.round((strokes / 5) / elapsedMinutes) : 0;
 
-    // Word-based accuracy
     const accuracy = typedWords.length > 0 ? Math.round((correctWords / typedWords.length) * 100) : 0;
 
     const deductionPerMistake = level.toLowerCase() === 'senior' ? 1.25 : 1.8;
@@ -171,7 +169,7 @@ export default function TypingTest() {
       setResults(metrics);
       setTestComplete(true);
     } catch (err) {
-      console.warn('⚠️ Saved metrics locally without Supabase persistence.');
+      console.warn('⚠️ Metrics saved locally without Supabase persistence.');
       setResults(metrics);
       setTestComplete(true);
     } finally {
@@ -179,7 +177,7 @@ export default function TypingTest() {
     }
   }, [user, passage, isSubmitting, language, level]);
 
-  // 🕒 Fixed Timer
+  // Timer
   useEffect(() => {
     if (!testStarted || testComplete) return;
 
@@ -198,19 +196,19 @@ export default function TypingTest() {
     return () => clearInterval(timer);
   }, [testStarted, testComplete, submitTest]);
 
-  // Auto scroll effect
+  // Word-Based Scroll Effect
   useEffect(() => {
-    if (activeCharRef.current && passageContainerRef.current) {
+    if (activeWordRef.current && passageContainerRef.current) {
       const container = passageContainerRef.current;
-      const activeChar = activeCharRef.current;
+      const activeWord = activeWordRef.current;
 
       const containerTop = container.scrollTop;
       const containerHeight = container.clientHeight;
-      const charOffsetTop = activeChar.offsetTop - container.offsetTop;
+      const wordOffsetTop = activeWord.offsetTop - container.offsetTop;
 
-      if (charOffsetTop >= containerTop + containerHeight - 80) {
+      if (wordOffsetTop >= containerTop + containerHeight - 80) {
         container.scrollTo({
-          top: charOffsetTop - 100, 
+          top: wordOffsetTop - 100, 
           behavior: 'smooth',
         });
       }
@@ -339,6 +337,10 @@ export default function TypingTest() {
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;
 
+  // ✂️ Get arrays of words for the UI mapping
+  const targetWordsArray = passage.text.trim().split(/\s+/).filter(Boolean);
+  const typedWordsArray = userInput.trim().split(/\s+/).filter(Boolean);
+
   return (
     <div className="min-h-screen bg-[#0b0f19] text-white relative overflow-hidden">
       <div className="absolute top-0 -left-1/4 w-96 h-96 bg-indigo-600 rounded-full filter blur-[120px] opacity-20 pointer-events-none" />
@@ -397,28 +399,31 @@ export default function TypingTest() {
               ref={passageContainerRef}
               className="bg-black/30 border border-white/5 p-6 rounded-xl h-72 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10"
             >
-              <p className="text-slate-300 text-lg leading-relaxed whitespace-pre-wrap font-mono">
-                {passage.text.split('').map((char, i) => {
-                  let charClass = "text-slate-400";
-                  let isCurrent = i === userInput.length;
+              <div className="text-slate-300 text-lg leading-relaxed font-mono flex flex-wrap gap-x-2 gap-y-1">
+                {targetWordsArray.map((word, i) => {
+                  let wordClass = "text-slate-400";
+                  
+                  // Is the student currently on this word?
+                  const isCurrent = i === typedWordsArray.length;
 
-                  if (i < userInput.length) {
-                    charClass = userInput[i] === char 
-                      ? "text-emerald-400 bg-emerald-500/10" 
-                      : "text-red-400 bg-red-500/20";
+                  if (i < typedWordsArray.length) {
+                    // Check if spelling of that specific word matches
+                    wordClass = typedWordsArray[i] === word 
+                      ? "text-emerald-400" 
+                      : "text-red-400 underline decoration-wavy";
                   }
 
                   return (
                     <span
                       key={i}
-                      ref={isCurrent ? activeCharRef : null}
-                      className={`${charClass} ${isCurrent ? "bg-indigo-500/30 text-white font-bold animate-pulse" : ""}`}
+                      ref={isCurrent ? activeWordRef : null}
+                      className={`${wordClass} px-1 rounded-md ${isCurrent ? "bg-indigo-500/30 text-white font-bold animate-pulse" : ""}`}
                     >
-                      {char}
+                      {word}
                     </span>
                   );
                 })}
-              </p>
+              </div>
             </div>
           </div>
 
