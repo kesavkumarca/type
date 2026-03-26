@@ -214,21 +214,18 @@ export default function TypingTest() {
     }
   }, [userInput]);
 
-  // 🧠 Strict Keydown Rules: Block backspace (if disabled) and block double-spaces
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (!testStarted || testComplete) return;
 
-    // ⛔ Block Backspace if disabled
     if (e.key === 'Backspace' && !backspaceEnabled) {
       e.preventDefault();
       return;
     }
 
-    // ⛔ Block double spaces
     if (e.key === ' ') {
       const lastChar = userInput[userInput.length - 1];
       if (lastChar === ' ' || userInput === '') {
-        e.preventDefault(); // Prevents extra space or starting with a space
+        e.preventDefault(); 
         return;
       }
     }
@@ -379,37 +376,35 @@ export default function TypingTest() {
               </h1>
             </div>
             
-            <div className="flex flex-col sm:flex-row items-center gap-4">
-              {/* 🛑 Backspace Toggle Controller (Default: Enabled) */}
-              <div className="flex items-center gap-2 bg-white/5 p-2 rounded-xl border border-white/10">
-                <span className="text-xs text-slate-300 font-medium">Backspace:</span>
+            {/* 🎯 Backspace toggle is now centered perfectly between the Title and the Timer clock */}
+            <div className="flex items-center gap-2 bg-white/5 p-2 rounded-xl border border-white/10">
+              <span className="text-xs text-slate-300 font-medium">Backspace:</span>
+              <button
+                onClick={() => setBackspaceEnabled(!backspaceEnabled)}
+                disabled={testStarted && !testComplete} 
+                className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all duration-300 ${
+                  backspaceEnabled 
+                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/30' 
+                    : 'bg-white/10 text-slate-400 hover:bg-white/20'
+                }`}
+              >
+                {backspaceEnabled ? 'ENABLED' : 'DISABLED'}
+              </button>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className={`text-4xl font-mono font-black tracking-wider ${timeLeft < 60 ? 'text-red-500 animate-pulse' : 'text-indigo-400'}`}>
+                {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
+              </div>
+
+              {!testStarted && (
                 <button
-                  onClick={() => setBackspaceEnabled(!backspaceEnabled)}
-                  disabled={testStarted && !testComplete} // Lock it during active test to prevent cheating
-                  className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all duration-300 ${
-                    backspaceEnabled 
-                      ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/30' 
-                      : 'bg-white/10 text-slate-400 hover:bg-white/20'
-                  }`}
+                  onClick={() => setTestStarted(true)}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-3 rounded-xl font-bold transition-all duration-300 shadow-lg hover:shadow-emerald-500/30"
                 >
-                  {backspaceEnabled ? 'ENABLED' : 'DISABLED'}
+                  Start Test
                 </button>
-              </div>
-
-              <div className="flex items-center gap-4">
-                <div className={`text-4xl font-mono font-black tracking-wider ${timeLeft < 60 ? 'text-red-500 animate-pulse' : 'text-indigo-400'}`}>
-                  {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
-                </div>
-
-                {!testStarted && (
-                  <button
-                    onClick={() => setTestStarted(true)}
-                    className="bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-3 rounded-xl font-bold transition-all duration-300 shadow-lg hover:shadow-emerald-500/30"
-                  >
-                    Start Test
-                  </button>
-                )}
-              </div>
+              )}
             </div>
           </div>
 
@@ -473,7 +468,7 @@ export default function TypingTest() {
             <textarea
               value={userInput}
               onChange={(e) => setUserInput(e.target.value)}
-              onKeyDown={handleKeyDown} // Trigger checking for blocked keys
+              onKeyDown={handleKeyDown} 
               disabled={!testStarted || testComplete}
               autoFocus={testStarted}
               onPaste={(e) => e.preventDefault()}
