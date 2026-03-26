@@ -81,7 +81,6 @@ export default function TypingTest() {
 
     const strokes = userInput.length;
     
-    // Split text into words (ignores extra spaces)
     const targetWords = passage.text.trim().split(/\s+/).filter(Boolean);
     const typedWords = userInput.trim().split(/\s+/).filter(Boolean);
 
@@ -101,9 +100,7 @@ export default function TypingTest() {
     const elapsedSeconds = 600 - timeLeft;
     const elapsedMinutes = elapsedSeconds / 60;
     
-    // Traditional typing speed formula: Total Strokes / 5 (average word) / Elapsed Minutes
     const wpm = elapsedMinutes > 0 ? Math.round((strokes / 5) / elapsedMinutes) : 0;
-
     const accuracy = typedWords.length > 0 ? Math.round((correctWords / typedWords.length) * 100) : 0;
 
     const deductionPerMistake = level.toLowerCase() === 'senior' ? 1.25 : 1.8;
@@ -337,7 +334,6 @@ export default function TypingTest() {
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;
 
-  // ✂️ Get arrays of words for the UI mapping
   const targetWordsArray = passage.text.trim().split(/\s+/).filter(Boolean);
   const typedWordsArray = userInput.trim().split(/\s+/).filter(Boolean);
 
@@ -401,23 +397,24 @@ export default function TypingTest() {
             >
               <div className="text-slate-300 text-lg leading-relaxed font-mono flex flex-wrap gap-x-2 gap-y-1">
                 {targetWordsArray.map((word, i) => {
-                  let wordClass = "text-slate-400";
-                  
-                  // Is the student currently on this word?
+                  let wordClass = "text-slate-400"; // Default
                   const isCurrent = i === typedWordsArray.length;
 
                   if (i < typedWordsArray.length) {
-                    // Check if spelling of that specific word matches
+                    // Lock in evaluations for completed words
                     wordClass = typedWordsArray[i] === word 
-                      ? "text-emerald-400" 
-                      : "text-red-400 underline decoration-wavy";
+                      ? "text-emerald-400 font-bold" 
+                      : "text-red-400 font-bold underline decoration-wavy";
+                  } else if (isCurrent) {
+                    // Smooth neutral box context while actively typing
+                    wordClass = "bg-indigo-500/30 text-white font-bold animate-pulse ring-2 ring-indigo-500/50";
                   }
 
                   return (
                     <span
                       key={i}
                       ref={isCurrent ? activeWordRef : null}
-                      className={`${wordClass} px-1 rounded-md ${isCurrent ? "bg-indigo-500/30 text-white font-bold animate-pulse" : ""}`}
+                      className={`${wordClass} px-1.5 py-0.5 rounded-md transition-all duration-200`}
                     >
                       {word}
                     </span>
