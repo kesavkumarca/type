@@ -337,6 +337,9 @@ export default function TypingTest() {
   const targetWordsArray = passage.text.trim().split(/\s+/).filter(Boolean);
   const typedWordsArray = userInput.trim().split(/\s+/).filter(Boolean);
 
+  // 🔍 Check what the student is actively typing right now for the CURRENT word
+  const activeWordValue = userInput.endsWith(' ') ? '' : typedWordsArray[typedWordsArray.length - 1] || '';
+
   return (
     <div className="min-h-screen bg-[#0b0f19] text-white relative overflow-hidden">
       <div className="absolute top-0 -left-1/4 w-96 h-96 bg-indigo-600 rounded-full filter blur-[120px] opacity-20 pointer-events-none" />
@@ -398,16 +401,20 @@ export default function TypingTest() {
               <div className="text-slate-300 text-lg leading-relaxed font-mono flex flex-wrap gap-x-2 gap-y-1">
                 {targetWordsArray.map((word, i) => {
                   let wordClass = "text-slate-400"; // Default
-                  const isCurrent = i === typedWordsArray.length;
+                  const isCurrent = i === (userInput.endsWith(' ') ? typedWordsArray.length : typedWordsArray.length - 1);
 
-                  if (i < typedWordsArray.length) {
-                    // Lock in evaluations for completed words
+                  if (i < (userInput.endsWith(' ') ? typedWordsArray.length : typedWordsArray.length - 1)) {
+                    // Past words: Solid green/red
                     wordClass = typedWordsArray[i] === word 
                       ? "text-emerald-400 font-bold" 
                       : "text-red-400 font-bold underline decoration-wavy";
                   } else if (isCurrent) {
-                    // Smooth neutral box context while actively typing
-                    wordClass = "bg-indigo-500/30 text-white font-bold animate-pulse ring-2 ring-indigo-500/50";
+                    // Active word being typed: Only turns red if you type something WRONG for this specific word
+                    const isMismatch = activeWordValue !== word.slice(0, activeWordValue.length);
+                    
+                    wordClass = isMismatch 
+                      ? "bg-red-500/20 text-red-400 font-bold animate-pulse ring-2 ring-red-500/50" 
+                      : "bg-indigo-500/30 text-white font-bold animate-pulse ring-2 ring-indigo-500/50";
                   }
 
                   return (
