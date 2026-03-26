@@ -30,15 +30,17 @@ export default function TypingTest() {
   const [results, setResults] = useState<any>(null);
   const [pageLoading, setPageLoading] = useState(true);
 
+  // ⚙️ Toggles & Settings
+  const [backspaceEnabled, setBackspaceEnabled] = useState(true); // Default enabled
+
   // 🛡️ Track submit locks
   const [isSubmitting, setIsSubmitting] = useState(false); 
 
   // 📜 References to bypass stale closures
   const passageContainerRef = useRef<HTMLDivElement>(null);
   const activeWordRef = useRef<HTMLSpanElement>(null);
-  const userInputRef = useRef(''); // Keeps track of live input for the timer
+  const userInputRef = useRef(''); 
 
-  // Keep the ref updated as the user types
   useEffect(() => {
     userInputRef.current = userInput;
   }, [userInput]);
@@ -111,7 +113,7 @@ export default function TypingTest() {
     return { wpm, accuracy, strokes, correctWords, mistakes, marks, passed, deductionPerMistake };
   }, [passage, userInput, timeLeft, level]);
 
-  // Submit test (Scoped with single ref execution to avoid closures)
+  // Submit test
   const submitTest = useCallback(async (currentInput: string, currentTimeLeft: number) => {
     if (!user || !passage || isSubmitting) return; 
 
@@ -211,6 +213,26 @@ export default function TypingTest() {
       }
     }
   }, [userInput]);
+
+  // 🧠 Strict Keydown Rules: Block backspace (if disabled) and block double-spaces
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (!testStarted || testComplete) return;
+
+    // ⛔ Block Backspace if disabled
+    if (e.key === 'Backspace' && !backspaceEnabled) {
+      e.preventDefault();
+      return;
+    }
+
+    // ⛔ Block double spaces
+    if (e.key === ' ') {
+      const lastChar = userInput[userInput.length - 1];
+      if (lastChar === ' ' || userInput === '') {
+        e.preventDefault(); // Prevents extra space or starting with a space
+        return;
+      }
+    }
+  };
 
   if (pageLoading || loading) {
     return (
@@ -337,7 +359,6 @@ export default function TypingTest() {
   const targetWordsArray = passage.text.trim().split(/\s+/).filter(Boolean);
   const typedWordsArray = userInput.trim().split(/\s+/).filter(Boolean);
 
-  // 🔍 Check what the student is actively typing right now for the CURRENT word
   const activeWordValue = userInput.endsWith(' ') ? '' : typedWordsArray[typedWordsArray.length - 1] || '';
 
   return (
@@ -358,19 +379,37 @@ export default function TypingTest() {
               </h1>
             </div>
             
-            <div className="flex items-center gap-6">
-              <div className={`text-4xl font-mono font-black tracking-wider ${timeLeft < 60 ? 'text-red-500 animate-pulse' : 'text-indigo-400'}`}>
-                {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
+            <div className="flex flex-col sm:flex-row items-center gap-4">
+              {/* 🛑 Backspace Toggle Controller (Default: Enabled) */}
+              <div className="flex items-center gap-2 bg-white/5 p-2 rounded-xl border border-white/10">
+                <span className="text-xs text-slate-300 font-medium">Backspace:</span>
+                <button
+                  onClick={() => setBackspaceEnabled(!backspaceEnabled)}
+                  disabled={testStarted && !testComplete} // Lock it during active test to prevent cheating
+                  className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all duration-300 ${
+                    backspaceEnabled 
+                      ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/30' 
+                      : 'bg-white/10 text-slate-400 hover:bg-white/20'
+                  }`}
+                >
+                  {backspaceEnabled ? 'ENABLED' : 'DISABLED'}
+                </button>
               </div>
 
-              {!testStarted && (
-                <button
-                  onClick={() => setTestStarted(true)}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-3 rounded-xl font-bold transition-all duration-300 shadow-lg hover:shadow-emerald-500/30"
-                >
-                  Start Test
-                </button>
-              )}
+              <div className="flex items-center gap-4">
+                <div className={`text-4xl font-mono font-black tracking-wider ${timeLeft < 60 ? 'text-red-500 animate-pulse' : 'text-indigo-400'}`}>
+                  {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
+                </div>
+
+                {!testStarted && (
+                  <button
+                    onClick={() => setTestStarted(true)}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-3 rounded-xl font-bold transition-all duration-300 shadow-lg hover:shadow-emerald-500/30"
+                  >
+                    Start Test
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -400,16 +439,14 @@ export default function TypingTest() {
             >
               <div className="text-slate-300 text-lg leading-relaxed font-mono flex flex-wrap gap-x-2 gap-y-1">
                 {targetWordsArray.map((word, i) => {
-                  let wordClass = "text-slate-400"; // Default
+                  let wordClass = "text-slate-400"; 
                   const isCurrent = i === (userInput.endsWith(' ') ? typedWordsArray.length : typedWordsArray.length - 1);
 
                   if (i < (userInput.endsWith(' ') ? typedWordsArray.length : typedWordsArray.length - 1)) {
-                    // Past words: Solid green/red
                     wordClass = typedWordsArray[i] === word 
                       ? "text-emerald-400 font-bold" 
                       : "text-red-400 font-bold underline decoration-wavy";
                   } else if (isCurrent) {
-                    // Active word being typed: Only turns red if you type something WRONG for this specific word
                     const isMismatch = activeWordValue !== word.slice(0, activeWordValue.length);
                     
                     wordClass = isMismatch 
@@ -436,6 +473,7 @@ export default function TypingTest() {
             <textarea
               value={userInput}
               onChange={(e) => setUserInput(e.target.value)}
+              onKeyDown={handleKeyDown} // Trigger checking for blocked keys
               disabled={!testStarted || testComplete}
               autoFocus={testStarted}
               onPaste={(e) => e.preventDefault()}
