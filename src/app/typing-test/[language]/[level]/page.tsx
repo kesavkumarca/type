@@ -104,9 +104,13 @@ export default function TypingTest() {
     });
 
     const elapsedSeconds = 600 - timeLeft;
-    const elapsedMinutes = elapsedSeconds / 60;
-    
-    const wpm = elapsedMinutes > 0 ? Math.round((strokes / 5) / elapsedMinutes) : 0;
+
+    // ⏳ FIX: Cap the minimum elapsed time to 10 seconds to stop WPM spikes at start!
+    const activeElapsedSeconds = Math.max(elapsedSeconds, 10);
+    const elapsedMinutes = activeElapsedSeconds / 60;
+    const wpm = Math.round((strokes / 5) / elapsedMinutes);
+
+    // ✅ ACCURACY KEPT EXACTLY THE SAME (Untouched as requested)
     const accuracy = targetWords.length > 0 ? Math.round((correctWords / targetWords.length) * 100) : 0;
 
     const deductionPerMistake = level.toLowerCase() === 'senior' ? 1.25 : 1.8;
@@ -143,8 +147,11 @@ export default function TypingTest() {
     });
 
     const elapsedSeconds = 600 - currentTimeLeft;
-    const elapsedMinutes = elapsedSeconds / 60;
-    const wpm = elapsedMinutes > 0 ? Math.round((strokes / 5) / elapsedMinutes) : 0;
+    const activeElapsedSeconds = Math.max(elapsedSeconds, 10);
+    const elapsedMinutes = activeElapsedSeconds / 60;
+    const wpm = Math.round((strokes / 5) / elapsedMinutes);
+
+    // ✅ ACCURACY KEPT EXACTLY THE SAME (Untouched as requested)
     const accuracy = targetWords.length > 0 ? Math.round((correctWords / targetWords.length) * 100) : 0;
 
     const deductionPerMistake = level.toLowerCase() === 'senior' ? 1.25 : 1.8;
@@ -298,6 +305,10 @@ export default function TypingTest() {
     doc.line(20, 168, pageWidth - 20, 168);
 
     doc.setFont('helvetica', 'bold');
+    
+    // ✅ ADDED FIX: Light Grey color override sets painter so it doesn't default to Black redacted box
+    doc.setFillColor(245, 245, 245); 
+    
     doc.rect(20, 175, pageWidth - 40, 12, 'FD');
     doc.text('NET AGGREGATE MARKS', 25, 183);
     doc.text(`${results.marks} / 100`, pageWidth - 25, 183, { align: 'right' });
