@@ -170,11 +170,11 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* 📝 Total Drills Completed (Purple) */}
+            {/* 📝 Total Tests Completed (Purple) */}
             <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_0_50px_-12px_rgba(168,85,247,0.5)] group shadow-lg">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Total Drills Completed</p>
+                  <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Total Tests Completed</p>
                   <div className="flex items-baseline space-x-2 mt-2">
                     <p className="text-4xl font-extrabold text-white group-hover:text-purple-300 transition-colors">
                       {statsLoading ? '-' : stats.totalTests}

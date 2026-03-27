@@ -6,6 +6,7 @@ import { useRouter, useParams } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import { supabase } from '@/config/supabase';
 import Link from 'next/link';
+import { jsPDF } from 'jspdf';
 
 interface Passage {
   id: string;
@@ -231,6 +232,117 @@ export default function TypingTest() {
     }
   };
 
+  // 📝 Function to build standard PDF Report
+  const generatePDFReport = () => {
+    if (!results || !passage) return;
+
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4',
+    });
+
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    // 🏷️ Add Institute Branding Header
+    doc.addImage('/my-logo.png', 'PNG', (pageWidth / 2) - 15, 15, 30, 30); // Center logo
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(22);
+    doc.text('LAKSHMI TECHNICAL INSTITUTE', pageWidth / 2, 55, { align: 'center' });
+
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Official Typing Examination Statement of Marks', pageWidth / 2, 65, { align: 'center' });
+
+    doc.setLineWidth(0.5);
+    doc.line(20, 72, pageWidth - 20, 72); // Boundary line
+
+    // 👤 Student & Exam Information
+    doc.setFontSize(12);
+    doc.text(`Student ID: ${user?.email || 'N/A'}`, 20, 85);
+    doc.text(`Language: ${language.toUpperCase()}`, 20, 93);
+    doc.text(`Exam Level: ${level.toUpperCase()}`, 20, 101);
+    doc.text(`Date generated: ${new Date().toLocaleDateString()}`, pageWidth - 20, 85, { align: 'right' });
+
+    // 📊 Table Metrics
+    doc.setDrawColor(0);
+    doc.setFillColor(245, 245, 245); // Light grey header
+    doc.rect(20, 110, pageWidth - 40, 10, 'FD');
+    doc.setFont('helvetica', 'bold');
+    doc.text('Examination Parameter', 25, 116);
+    doc.text('Obtained Metric', pageWidth - 25, 116, { align: 'right' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.text('Gross Speed', 25, 128);
+    doc.text(`${results.wpm} WPM`, pageWidth - 25, 128, { align: 'right' });
+    doc.line(20, 132, pageWidth - 20, 132);
+
+    doc.text('Total Strokes Keyed', 25, 140);
+    doc.text(`${results.strokes}`, pageWidth - 25, 140, { align: 'right' });
+    doc.line(20, 144, pageWidth - 20, 144);
+
+    doc.text('Word Mistakes Committed', 25, 152);
+    doc.text(`${results.mistakes}`, pageWidth - 25, 152, { align: 'right' });
+    doc.line(20, 156, pageWidth - 20, 156);
+
+    doc.text('Grade Accuracy Ratio', 25, 164);
+    doc.text(`${results.accuracy}%`, pageWidth - 25, 164, { align: 'right' });
+    doc.line(20, 168, pageWidth - 20, 168);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFillColor(245, 245, 245);
+    doc.rect(20, 175, pageWidth - 40, 12, 'FD');
+    doc.text('NET AGGREGATE MARKS', 25, 183);
+    doc.text(`${results.marks} / 100`, pageWidth - 25, 183, { align: 'right' });
+
+    // 🔴 🔍 HIGHLIGHT WRONG WORDS EVALUATION
+    doc.setFontSize(14);
+    doc.text('Individual Word Mistake Analysis Log', 20, 205);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'normal');
+
+    const targetWords = passage.text.trim().split(/\s+/).filter(Boolean);
+    const typedWords = userInput.trim().split(/\s+/).filter(Boolean);
+
+    let startX = 20;
+    let startY = 215;
+    const marginY = 8;
+    const marginX = doc.getTextWidth(' ') + 2; 
+
+    typedWords.forEach((word, index) => {
+      const isWrong = index < targetWords.length && word !== targetWords[index];
+      const wordWidth = doc.getTextWidth(word);
+
+      // Wrap lines if we overflow margin
+      if (startX + wordWidth > pageWidth - 20) {
+        startX = 20;
+        startY += marginY;
+      }
+
+      if (isWrong) {
+        doc.setTextColor(220, 50, 50); // High-contrast Red for mistake
+        doc.setFont('helvetica', 'bold');
+        doc.text(word, startX, startY);
+        doc.setDrawColor(220, 50, 50);
+        doc.line(startX, startY + 1, startX + wordWidth, startY + 1); // Wavy Underline mock
+        doc.setTextColor(0, 0, 0); // Reset
+        doc.setFont('helvetica', 'normal');
+      } else {
+        doc.text(word, startX, startY);
+      }
+
+      startX += wordWidth + marginX;
+    });
+
+    // 🏁 Passing Verdict footer
+    const passedText = results.passed ? 'VERDICT: EXAMINATION PASSED ✅' : 'VERDICT: EXAMINATION UNSUCCESSFUL ❌';
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text(passedText, pageWidth / 2, startY + 30, { align: 'center' });
+
+    doc.save(`LTITypingTest-${language}-${level}.pdf`);
+  };
+
   if (pageLoading || loading) {
     return (
       <div className="min-h-screen bg-[#0b0f19] flex items-center justify-center">
@@ -327,7 +439,8 @@ export default function TypingTest() {
               )}
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            {/* 👇 BUTTON HUB (Includes Certificate Downloader for all tests) */}
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
               <Link href="/dashboard" className="bg-white/10 hover:bg-white/20 border border-white/10 text-white px-8 py-3 rounded-xl font-bold transition-all duration-300">
                 Back to Dashboard
               </Link>
@@ -338,9 +451,15 @@ export default function TypingTest() {
                   setTimeLeft(600);
                   setTestStarted(false);
                 }}
-                className="bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-3 rounded-xl font-bold transition-all duration-300 shadow-lg hover:shadow-indigo-500/30"
+                className="bg-white/5 hover:bg-white/10 text-white border border-white/10 px-8 py-3 rounded-xl font-bold transition-all duration-300"
               >
                 Try Again
+              </button>
+              <button
+                onClick={generatePDFReport}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-3 rounded-xl font-bold transition-all duration-300 shadow-lg hover:shadow-emerald-500/30"
+              >
+                Download PDF Statement
               </button>
             </div>
           </div>
@@ -376,7 +495,6 @@ export default function TypingTest() {
               </h1>
             </div>
             
-            {/* 🎯 Backspace toggle is now centered perfectly between the Title and the Timer clock */}
             <div className="flex items-center gap-2 bg-white/5 p-2 rounded-xl border border-white/10">
               <span className="text-xs text-slate-300 font-medium">Backspace:</span>
               <button
