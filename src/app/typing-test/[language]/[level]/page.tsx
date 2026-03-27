@@ -90,13 +90,16 @@ export default function TypingTest() {
     let correctWords = 0;
     let mistakes = 0;
 
-    typedWords.forEach((word, index) => {
-      if (index < targetWords.length) {
-        if (word === targetWords[index]) {
+    // ✅ FIXED: Loop through TARGET WORDS to penalize skipped words
+    targetWords.forEach((word, index) => {
+      if (index < typedWords.length) {
+        if (typedWords[index] === word) {
           correctWords++;
         } else {
-          mistakes++;
+          mistakes++; // Wrong word
         }
+      } else {
+        mistakes++; // Skipped word
       }
     });
 
@@ -104,7 +107,7 @@ export default function TypingTest() {
     const elapsedMinutes = elapsedSeconds / 60;
     
     const wpm = elapsedMinutes > 0 ? Math.round((strokes / 5) / elapsedMinutes) : 0;
-    const accuracy = typedWords.length > 0 ? Math.round((correctWords / typedWords.length) * 100) : 0;
+    const accuracy = targetWords.length > 0 ? Math.round((correctWords / targetWords.length) * 100) : 0;
 
     const deductionPerMistake = level.toLowerCase() === 'senior' ? 1.25 : 1.8;
     const baseMarks = 100 - (mistakes * deductionPerMistake);
@@ -127,20 +130,23 @@ export default function TypingTest() {
     let correctWords = 0;
     let mistakes = 0;
 
-    typedWords.forEach((word, index) => {
-      if (index < targetWords.length) {
-        if (word === targetWords[index]) {
+    // ✅ FIXED: Loop through TARGET WORDS to penalize skipped words
+    targetWords.forEach((word, index) => {
+      if (index < typedWords.length) {
+        if (typedWords[index] === word) {
           correctWords++;
         } else {
           mistakes++;
         }
+      } else {
+        mistakes++;
       }
     });
 
     const elapsedSeconds = 600 - currentTimeLeft;
     const elapsedMinutes = elapsedSeconds / 60;
     const wpm = elapsedMinutes > 0 ? Math.round((strokes / 5) / elapsedMinutes) : 0;
-    const accuracy = typedWords.length > 0 ? Math.round((correctWords / typedWords.length) * 100) : 0;
+    const accuracy = targetWords.length > 0 ? Math.round((correctWords / targetWords.length) * 100) : 0;
 
     const deductionPerMistake = level.toLowerCase() === 'senior' ? 1.25 : 1.8;
     const baseMarks = 100 - (mistakes * deductionPerMistake);
@@ -244,8 +250,8 @@ export default function TypingTest() {
 
     const pageWidth = doc.internal.pageSize.getWidth();
 
-    // 🏷️ Add Institute Branding Header
-    doc.addImage('/my-logo.png', 'PNG', (pageWidth / 2) - 15, 15, 30, 30); // Center logo
+    // 🏷️ Add Institute Branding Header (Updated Logo path)
+    doc.addImage('/lakshmi-logo.png', 'PNG', (pageWidth / 2) - 15, 15, 30, 30); // Center logo
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(22);
     doc.text('LAKSHMI TECHNICAL INSTITUTE', pageWidth / 2, 55, { align: 'center' });
@@ -309,8 +315,11 @@ export default function TypingTest() {
     const marginY = 8;
     const marginX = doc.getTextWidth(' ') + 2; 
 
-    typedWords.forEach((word, index) => {
-      const isWrong = index < targetWords.length && word !== targetWords[index];
+    targetWords.forEach((word, index) => {
+      const isTyped = index < typedWords.length;
+      const isWrong = isTyped && typedWords[index] !== word;
+      const isSkipped = !isTyped;
+      
       const wordWidth = doc.getTextWidth(word);
 
       // Wrap lines if we overflow margin
@@ -320,12 +329,18 @@ export default function TypingTest() {
       }
 
       if (isWrong) {
-        doc.setTextColor(220, 50, 50); // High-contrast Red for mistake
+        doc.setTextColor(220, 50, 50); // Red for mistyped
         doc.setFont('helvetica', 'bold');
-        doc.text(word, startX, startY);
+        doc.text(typedWords[index], startX, startY);
         doc.setDrawColor(220, 50, 50);
-        doc.line(startX, startY + 1, startX + wordWidth, startY + 1); // Wavy Underline mock
-        doc.setTextColor(0, 0, 0); // Reset
+        doc.line(startX, startY + 1, startX + wordWidth, startY + 1); 
+        doc.setTextColor(0, 0, 0); 
+        doc.setFont('helvetica', 'normal');
+      } else if (isSkipped) {
+        doc.setTextColor(150, 150, 150); // Gray for un-typed/skipped words
+        doc.setFont('helvetica', 'italic');
+        doc.text(word, startX, startY);
+        doc.setTextColor(0, 0, 0); 
         doc.setFont('helvetica', 'normal');
       } else {
         doc.text(word, startX, startY);
@@ -439,7 +454,7 @@ export default function TypingTest() {
               )}
             </div>
 
-            {/* 👇 BUTTON HUB (Includes Certificate Downloader for all tests) */}
+            {/* 👇 BUTTON HUB */}
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
               <Link href="/dashboard" className="bg-white/10 hover:bg-white/20 border border-white/10 text-white px-8 py-3 rounded-xl font-bold transition-all duration-300">
                 Back to Dashboard
