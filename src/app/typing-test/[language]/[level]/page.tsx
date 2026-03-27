@@ -90,7 +90,7 @@ export default function TypingTest() {
     let correctWords = 0;
     let mistakes = 0;
 
-    // ✅ FIXED: Loop through TARGET WORDS to penalize skipped words
+    // Loop through TARGET WORDS to penalize skipped words
     targetWords.forEach((word, index) => {
       if (index < typedWords.length) {
         if (typedWords[index] === word) {
@@ -130,7 +130,6 @@ export default function TypingTest() {
     let correctWords = 0;
     let mistakes = 0;
 
-    // ✅ FIXED: Loop through TARGET WORDS to penalize skipped words
     targetWords.forEach((word, index) => {
       if (index < typedWords.length) {
         if (typedWords[index] === word) {
@@ -238,7 +237,7 @@ export default function TypingTest() {
     }
   };
 
-  // 📝 Function to build standard PDF Report
+  // 📝 Digital Neon Dark Theme PDF
   const generatePDFReport = () => {
     if (!results || !passage) return;
 
@@ -249,61 +248,88 @@ export default function TypingTest() {
     });
 
     const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
 
-    // 🏷️ Add Institute Branding Header (Updated Logo path)
-    doc.addImage('/lakshmi-logo.png', 'PNG', (pageWidth / 2) - 15, 15, 30, 30); // Center logo
+    // 🌌 1. Sleek Dark Background (#0b0f19)
+    doc.setFillColor(11, 15, 25);
+    doc.rect(0, 0, pageWidth, pageHeight, 'F');
+
+    // 🎨 2. Glowing Ambient Neon Borders
+    doc.setDrawColor(99, 102, 241); // Indigo
+    doc.setLineWidth(1.5);
+    doc.rect(10, 10, pageWidth - 20, pageHeight - 20, 'D');
+
+    doc.setDrawColor(16, 185, 129); // Emerald
+    doc.setLineWidth(0.5);
+    doc.rect(13, 13, pageWidth - 26, pageHeight - 26, 'D');
+
+    // 🏷️ 3. Institute Branding Header
+    doc.addImage('/lakshmi-logo.png', 'PNG', (pageWidth / 2) - 15, 20, 30, 30);
+    
+    doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(22);
-    doc.text('LAKSHMI TECHNICAL INSTITUTE', pageWidth / 2, 55, { align: 'center' });
+    doc.text('LAKSHMI TECHNICAL INSTITUTE', pageWidth / 2, 60, { align: 'center' });
 
+    doc.setTextColor(148, 163, 184); // Slate text
     doc.setFontSize(14);
     doc.setFont('helvetica', 'normal');
-    doc.text('Official Typing Examination Statement of Marks', pageWidth / 2, 65, { align: 'center' });
+    doc.text('Official Typing Examination Statement of Marks', pageWidth / 2, 70, { align: 'center' });
 
-    doc.setLineWidth(0.5);
-    doc.line(20, 72, pageWidth - 20, 72); // Boundary line
+    doc.setDrawColor(255, 255, 255, 0.2);
+    doc.line(20, 77, pageWidth - 20, 77);
 
-    // 👤 Student & Exam Information
+    // 👤 4. Student & Exam Info
     doc.setFontSize(12);
-    doc.text(`Student ID: ${user?.email || 'N/A'}`, 20, 85);
-    doc.text(`Language: ${language.toUpperCase()}`, 20, 93);
-    doc.text(`Exam Level: ${level.toUpperCase()}`, 20, 101);
-    doc.text(`Date generated: ${new Date().toLocaleDateString()}`, pageWidth - 20, 85, { align: 'right' });
+    doc.setTextColor(255, 255, 255);
+    doc.text(`Student ID: ${user?.email || 'N/A'}`, 20, 90);
+    doc.text(`Language: ${language.toUpperCase()}`, 20, 98);
+    doc.text(`Exam Level: ${level.toUpperCase()}`, 20, 106);
+    
+    doc.setTextColor(148, 163, 184);
+    doc.text(`Date generated: ${new Date().toLocaleDateString()}`, pageWidth - 20, 90, { align: 'right' });
 
-    // 📊 Table Metrics
-    doc.setDrawColor(0);
-    doc.setFillColor(245, 245, 245); // Light grey header
-    doc.rect(20, 110, pageWidth - 40, 10, 'FD');
+    // 📊 5. Table Metrics
+    doc.setFillColor(30, 41, 59); // Slate-800
+    doc.rect(20, 115, pageWidth - 40, 10, 'F');
+    
+    doc.setTextColor(99, 102, 241); // Indigo
     doc.setFont('helvetica', 'bold');
-    doc.text('Examination Parameter', 25, 116);
-    doc.text('Obtained Metric', pageWidth - 25, 116, { align: 'right' });
+    doc.text('Examination Parameter', 25, 121);
+    doc.text('Obtained Metric', pageWidth - 25, 121, { align: 'right' });
 
     doc.setFont('helvetica', 'normal');
-    doc.text('Gross Speed', 25, 128);
-    doc.text(`${results.wpm} WPM`, pageWidth - 25, 128, { align: 'right' });
-    doc.line(20, 132, pageWidth - 20, 132);
+    doc.setTextColor(255, 255, 255);
 
-    doc.text('Total Strokes Keyed', 25, 140);
-    doc.text(`${results.strokes}`, pageWidth - 25, 140, { align: 'right' });
-    doc.line(20, 144, pageWidth - 20, 144);
+    doc.text('Gross Speed', 25, 133);
+    doc.text(`${results.wpm} WPM`, pageWidth - 25, 133, { align: 'right' });
+    doc.line(20, 137, pageWidth - 20, 137);
 
-    doc.text('Word Mistakes Committed', 25, 152);
-    doc.text(`${results.mistakes}`, pageWidth - 25, 152, { align: 'right' });
-    doc.line(20, 156, pageWidth - 20, 156);
+    doc.text('Total Strokes Keyed', 25, 145);
+    doc.text(`${results.strokes}`, pageWidth - 25, 145, { align: 'right' });
+    doc.line(20, 149, pageWidth - 20, 149);
 
-    doc.text('Grade Accuracy Ratio', 25, 164);
-    doc.text(`${results.accuracy}%`, pageWidth - 25, 164, { align: 'right' });
-    doc.line(20, 168, pageWidth - 20, 168);
+    doc.text('Word Mistakes Committed', 25, 157);
+    doc.setTextColor(248, 113, 113); // Coral-red
+    doc.text(`${results.mistakes}`, pageWidth - 25, 157, { align: 'right' });
+    doc.setTextColor(255, 255, 255);
+    doc.line(20, 161, pageWidth - 20, 161);
 
+    doc.text('Grade Accuracy Ratio', 25, 169);
+    doc.text(`${results.accuracy}%`, pageWidth - 25, 169, { align: 'right' });
+    doc.line(20, 173, pageWidth - 20, 173);
+
+    doc.setFillColor(30, 41, 59); 
+    doc.rect(20, 180, pageWidth - 40, 12, 'F');
+    doc.setTextColor(16, 185, 129); // Emerald
     doc.setFont('helvetica', 'bold');
-    doc.setFillColor(245, 245, 245);
-    doc.rect(20, 175, pageWidth - 40, 12, 'FD');
-    doc.text('NET AGGREGATE MARKS', 25, 183);
-    doc.text(`${results.marks} / 100`, pageWidth - 25, 183, { align: 'right' });
+    doc.text('NET AGGREGATE MARKS', 25, 188);
+    doc.text(`${results.marks} / 100`, pageWidth - 25, 188, { align: 'right' });
 
-    // 🔴 🔍 HIGHLIGHT WRONG WORDS EVALUATION
+    // 🔴 🔍 6. HIGHLIGHT WRONG + SKIPPED WORDS EVALUATION
+    doc.setTextColor(255, 255, 255);
     doc.setFontSize(14);
-    doc.text('Individual Word Mistake Analysis Log', 20, 205);
+    doc.text('Individual Word Mistake Analysis Log', 20, 210);
     doc.setFontSize(11);
     doc.setFont('helvetica', 'normal');
 
@@ -311,7 +337,7 @@ export default function TypingTest() {
     const typedWords = userInput.trim().split(/\s+/).filter(Boolean);
 
     let startX = 20;
-    let startY = 215;
+    let startY = 220;
     const marginY = 8;
     const marginX = doc.getTextWidth(' ') + 2; 
 
@@ -322,25 +348,24 @@ export default function TypingTest() {
       
       const wordWidth = doc.getTextWidth(word);
 
-      // Wrap lines if we overflow margin
       if (startX + wordWidth > pageWidth - 20) {
         startX = 20;
         startY += marginY;
       }
 
       if (isWrong) {
-        doc.setTextColor(220, 50, 50); // Red for mistyped
+        doc.setTextColor(248, 113, 113); // Coral-red
         doc.setFont('helvetica', 'bold');
         doc.text(typedWords[index], startX, startY);
-        doc.setDrawColor(220, 50, 50);
+        doc.setDrawColor(248, 113, 113);
         doc.line(startX, startY + 1, startX + wordWidth, startY + 1); 
-        doc.setTextColor(0, 0, 0); 
+        doc.setTextColor(255, 255, 255); 
         doc.setFont('helvetica', 'normal');
       } else if (isSkipped) {
-        doc.setTextColor(150, 150, 150); // Gray for un-typed/skipped words
+        doc.setTextColor(100, 116, 139); // Slate-500 for skipped/untyped words
         doc.setFont('helvetica', 'italic');
         doc.text(word, startX, startY);
-        doc.setTextColor(0, 0, 0); 
+        doc.setTextColor(255, 255, 255); 
         doc.setFont('helvetica', 'normal');
       } else {
         doc.text(word, startX, startY);
@@ -349,13 +374,20 @@ export default function TypingTest() {
       startX += wordWidth + marginX;
     });
 
-    // 🏁 Passing Verdict footer
+    // 🏁 7. Final Verdict
     const passedText = results.passed ? 'VERDICT: EXAMINATION PASSED ✅' : 'VERDICT: EXAMINATION UNSUCCESSFUL ❌';
-    doc.setFontSize(14);
+    doc.setFontSize(15);
     doc.setFont('helvetica', 'bold');
-    doc.text(passedText, pageWidth / 2, startY + 30, { align: 'center' });
+    
+    if (results.passed) {
+      doc.setTextColor(16, 185, 129); // Emerald
+    } else {
+      doc.setTextColor(239, 68, 68); // Red
+    }
+    
+    doc.text(passedText, pageWidth / 2, startY + 25, { align: 'center' });
 
-    doc.save(`LTITypingTest-${language}-${level}.pdf`);
+    doc.save(`LTITypingTest-${language}-${level}-digital.pdf`);
   };
 
   if (pageLoading || loading) {
