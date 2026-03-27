@@ -237,7 +237,7 @@ export default function TypingTest() {
     }
   };
 
-  // 📝 Digital Neon Dark Theme PDF
+  // 📝 Standard White Paper PDF (Unlimited Auto Multi-paging)
   const generatePDFReport = () => {
     if (!results || !passage) return;
 
@@ -249,87 +249,62 @@ export default function TypingTest() {
 
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
+    const bottomMargin = 20; // Trigger line for page breaking
 
-    // 🌌 1. Sleek Dark Background (#0b0f19)
-    doc.setFillColor(11, 15, 25);
-    doc.rect(0, 0, pageWidth, pageHeight, 'F');
-
-    // 🎨 2. Glowing Ambient Neon Borders
-    doc.setDrawColor(99, 102, 241); // Indigo
-    doc.setLineWidth(1.5);
-    doc.rect(10, 10, pageWidth - 20, pageHeight - 20, 'D');
-
-    doc.setDrawColor(16, 185, 129); // Emerald
-    doc.setLineWidth(0.5);
-    doc.rect(13, 13, pageWidth - 26, pageHeight - 26, 'D');
-
-    // 🏷️ 3. Institute Branding Header
-    doc.addImage('/lakshmi-logo.png', 'PNG', (pageWidth / 2) - 15, 20, 30, 30);
-    
-    doc.setTextColor(255, 255, 255);
+    // 🏷️ 1. Institute Branding Header
+    doc.addImage('/lakshmi-logo.png', 'PNG', (pageWidth / 2) - 15, 15, 30, 30);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(22);
-    doc.text('LAKSHMI TECHNICAL INSTITUTE', pageWidth / 2, 60, { align: 'center' });
+    doc.setTextColor(0, 0, 0); // Black
+    doc.text('LAKSHMI TECHNICAL INSTITUTE', pageWidth / 2, 55, { align: 'center' });
 
-    doc.setTextColor(148, 163, 184); // Slate text
     doc.setFontSize(14);
     doc.setFont('helvetica', 'normal');
-    doc.text('Official Typing Examination Statement of Marks', pageWidth / 2, 70, { align: 'center' });
+    doc.text('Official Typing Examination Statement of Marks', pageWidth / 2, 65, { align: 'center' });
 
-    doc.setDrawColor(255, 255, 255, 0.2);
-    doc.line(20, 77, pageWidth - 20, 77);
+    doc.setLineWidth(0.5);
+    doc.setDrawColor(0, 0, 0);
+    doc.line(20, 72, pageWidth - 20, 72);
 
-    // 👤 4. Student & Exam Info
+    // 👤 2. Student & Exam Info
     doc.setFontSize(12);
-    doc.setTextColor(255, 255, 255);
-    doc.text(`Student ID: ${user?.email || 'N/A'}`, 20, 90);
-    doc.text(`Language: ${language.toUpperCase()}`, 20, 98);
-    doc.text(`Exam Level: ${level.toUpperCase()}`, 20, 106);
-    
-    doc.setTextColor(148, 163, 184);
-    doc.text(`Date generated: ${new Date().toLocaleDateString()}`, pageWidth - 20, 90, { align: 'right' });
+    doc.text(`Student ID: ${user?.email || 'N/A'}`, 20, 85);
+    doc.text(`Language: ${language.toUpperCase()}`, 20, 93);
+    doc.text(`Exam Level: ${level.toUpperCase()}`, 20, 101);
+    doc.text(`Date generated: ${new Date().toLocaleDateString()}`, pageWidth - 20, 85, { align: 'right' });
 
-    // 📊 5. Table Metrics
-    doc.setFillColor(30, 41, 59); // Slate-800
-    doc.rect(20, 115, pageWidth - 40, 10, 'F');
-    
-    doc.setTextColor(99, 102, 241); // Indigo
+    // 📊 3. Table Metrics
+    doc.setFillColor(245, 245, 245); // Light Gray
+    doc.rect(20, 110, pageWidth - 40, 10, 'FD');
     doc.setFont('helvetica', 'bold');
-    doc.text('Examination Parameter', 25, 121);
-    doc.text('Obtained Metric', pageWidth - 25, 121, { align: 'right' });
+    doc.text('Examination Parameter', 25, 116);
+    doc.text('Obtained Metric', pageWidth - 25, 116, { align: 'right' });
 
     doc.setFont('helvetica', 'normal');
-    doc.setTextColor(255, 255, 255);
+    doc.text('Gross Speed', 25, 128);
+    doc.text(`${results.wpm} WPM`, pageWidth - 25, 128, { align: 'right' });
+    doc.line(20, 132, pageWidth - 20, 132);
 
-    doc.text('Gross Speed', 25, 133);
-    doc.text(`${results.wpm} WPM`, pageWidth - 25, 133, { align: 'right' });
-    doc.line(20, 137, pageWidth - 20, 137);
+    doc.text('Total Strokes Keyed', 25, 140);
+    doc.text(`${results.strokes}`, pageWidth - 25, 140, { align: 'right' });
+    doc.line(20, 144, pageWidth - 20, 144);
 
-    doc.text('Total Strokes Keyed', 25, 145);
-    doc.text(`${results.strokes}`, pageWidth - 25, 145, { align: 'right' });
-    doc.line(20, 149, pageWidth - 20, 149);
+    doc.text('Word Mistakes Committed', 25, 152);
+    doc.text(`${results.mistakes}`, pageWidth - 25, 152, { align: 'right' });
+    doc.line(20, 156, pageWidth - 20, 156);
 
-    doc.text('Word Mistakes Committed', 25, 157);
-    doc.setTextColor(248, 113, 113); // Coral-red
-    doc.text(`${results.mistakes}`, pageWidth - 25, 157, { align: 'right' });
-    doc.setTextColor(255, 255, 255);
-    doc.line(20, 161, pageWidth - 20, 161);
+    doc.text('Grade Accuracy Ratio', 25, 164);
+    doc.text(`${results.accuracy}%`, pageWidth - 25, 164, { align: 'right' });
+    doc.line(20, 168, pageWidth - 20, 168);
 
-    doc.text('Grade Accuracy Ratio', 25, 169);
-    doc.text(`${results.accuracy}%`, pageWidth - 25, 169, { align: 'right' });
-    doc.line(20, 173, pageWidth - 20, 173);
-
-    doc.setFillColor(30, 41, 59); 
-    doc.rect(20, 180, pageWidth - 40, 12, 'F');
-    doc.setTextColor(16, 185, 129); // Emerald
     doc.setFont('helvetica', 'bold');
-    doc.text('NET AGGREGATE MARKS', 25, 188);
-    doc.text(`${results.marks} / 100`, pageWidth - 25, 188, { align: 'right' });
+    doc.rect(20, 175, pageWidth - 40, 12, 'FD');
+    doc.text('NET AGGREGATE MARKS', 25, 183);
+    doc.text(`${results.marks} / 100`, pageWidth - 25, 183, { align: 'right' });
 
-    // 🔴 🔍 6. HIGHLIGHT WRONG + SKIPPED WORDS EVALUATION
-    doc.setTextColor(255, 255, 255);
+    // 🔴 🔍 4. HIGHLIGHT WRONG + SKIPPED WORDS EVALUATION
     doc.setFontSize(14);
-    doc.text('Individual Word Mistake Analysis Log', 20, 210);
+    doc.text('Individual Word Mistake Analysis Log', 20, 205);
     doc.setFontSize(11);
     doc.setFont('helvetica', 'normal');
 
@@ -337,7 +312,7 @@ export default function TypingTest() {
     const typedWords = userInput.trim().split(/\s+/).filter(Boolean);
 
     let startX = 20;
-    let startY = 220;
+    let startY = 215;
     const marginY = 8;
     const marginX = doc.getTextWidth(' ') + 2; 
 
@@ -348,24 +323,32 @@ export default function TypingTest() {
       
       const wordWidth = doc.getTextWidth(word);
 
+      // Horizontal text-wrap check
       if (startX + wordWidth > pageWidth - 20) {
         startX = 20;
         startY += marginY;
       }
 
+      // 🚨 AUTOMATIC VERTICAL PAGE-OVERFLOW CHECK
+      if (startY > pageHeight - bottomMargin) {
+        doc.addPage();
+        startY = 25; // Reset to top of secondary page
+        startX = 20; // Reset left margin
+      }
+
       if (isWrong) {
-        doc.setTextColor(248, 113, 113); // Coral-red
+        doc.setTextColor(220, 50, 50); // High-contrast Red
         doc.setFont('helvetica', 'bold');
         doc.text(typedWords[index], startX, startY);
-        doc.setDrawColor(248, 113, 113);
+        doc.setDrawColor(220, 50, 50);
         doc.line(startX, startY + 1, startX + wordWidth, startY + 1); 
-        doc.setTextColor(255, 255, 255); 
+        doc.setTextColor(0, 0, 0); 
         doc.setFont('helvetica', 'normal');
       } else if (isSkipped) {
-        doc.setTextColor(100, 116, 139); // Slate-500 for skipped/untyped words
+        doc.setTextColor(150, 150, 150); // Classic gray for skipped
         doc.setFont('helvetica', 'italic');
         doc.text(word, startX, startY);
-        doc.setTextColor(255, 255, 255); 
+        doc.setTextColor(0, 0, 0); 
         doc.setFont('helvetica', 'normal');
       } else {
         doc.text(word, startX, startY);
@@ -374,20 +357,18 @@ export default function TypingTest() {
       startX += wordWidth + marginX;
     });
 
-    // 🏁 7. Final Verdict
-    const passedText = results.passed ? 'VERDICT: EXAMINATION PASSED ✅' : 'VERDICT: EXAMINATION UNSUCCESSFUL ❌';
-    doc.setFontSize(15);
-    doc.setFont('helvetica', 'bold');
-    
-    if (results.passed) {
-      doc.setTextColor(16, 185, 129); // Emerald
-    } else {
-      doc.setTextColor(239, 68, 68); // Red
+    // 🏁 5. Final Verdict (Check if verdict needs its own page)
+    if (startY + 30 > pageHeight - bottomMargin) {
+      doc.addPage();
+      startY = 25;
     }
-    
-    doc.text(passedText, pageWidth / 2, startY + 25, { align: 'center' });
 
-    doc.save(`LTITypingTest-${language}-${level}-digital.pdf`);
+    const passedText = results.passed ? 'VERDICT: EXAMINATION PASSED ✅' : 'VERDICT: EXAMINATION UNSUCCESSFUL ❌';
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text(passedText, pageWidth / 2, startY + 20, { align: 'center' });
+
+    doc.save(`LTITypingTest-${language}-${level}.pdf`);
   };
 
   if (pageLoading || loading) {
@@ -438,21 +419,21 @@ export default function TypingTest() {
 
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-12">
               <div className="p-5 rounded-xl bg-white/5 border border-white/5">
-                <p className="text-slate-400 text-xs font-medium uppercase">Speed</p>
+                <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Speed</p>
                 <p className="text-3xl font-extrabold mt-2 text-white">
                   {results.wpm} <span className="text-xs font-normal text-slate-400">WPM</span>
                 </p>
               </div>
 
               <div className="p-5 rounded-xl bg-white/5 border border-white/5">
-                <p className="text-slate-400 text-xs font-medium uppercase">Correct Words</p>
+                <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Correct Words</p>
                 <p className="text-3xl font-extrabold mt-2 text-emerald-400">
                   {results.correctWords}
                 </p>
               </div>
 
               <div className="p-5 rounded-xl bg-white/5 border border-white/5">
-                <p className="text-slate-400 text-xs font-medium uppercase">Mistakes</p>
+                <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Mistakes</p>
                 <p className="text-3xl font-extrabold mt-2 text-red-400">
                   {results.mistakes}
                 </p>
@@ -460,14 +441,14 @@ export default function TypingTest() {
               </div>
 
               <div className="p-5 rounded-xl bg-white/5 border border-white/5">
-                <p className="text-slate-400 text-xs font-medium uppercase">Strokes</p>
+                <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Strokes</p>
                 <p className="text-3xl font-extrabold mt-2 text-white">
                   {results.strokes}
                 </p>
               </div>
 
               <div className="p-5 rounded-xl bg-white/5 border border-white/5">
-                <p className="text-slate-400 text-xs font-medium uppercase">Accuracy</p>
+                <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Accuracy</p>
                 <p className="text-3xl font-extrabold mt-2 text-blue-400">
                   {results.accuracy}%
                 </p>
