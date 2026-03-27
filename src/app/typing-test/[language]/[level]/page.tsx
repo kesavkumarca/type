@@ -374,10 +374,12 @@ export default function TypingTest() {
       startY = 25;
     }
 
-    const passedText = results.passed ? 'VERDICT: EXAMINATION PASSED ✅' : 'VERDICT: EXAMINATION UNSUCCESSFUL ❌';
+    const passedText = results.passed ? 'VERDICT: EXAMINATION PASSED' : 'VERDICT: EXAMINATION UNSUCCESSFUL';
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.text(passedText, pageWidth / 2, startY + 20, { align: 'center' });
+    
+    // Position it safely 20mm from the left margin
+    doc.text(passedText, 20, startY + 20); 
 
     doc.save(`LTITypingTest-${language}-${level}.pdf`);
   };
