@@ -66,67 +66,67 @@ export default function Profile() {
 
   if (loading || fetchingProfile) {
     return (
-      <div className="min-h-screen bg-[#0b0f19] flex items-center justify-center">
-        <div className="text-xl text-slate-400 animate-pulse">Loading profile information...</div>
+      <div className="min-h-screen bg-white dark:bg-[#0b0f19] flex items-center justify-center transition-colors duration-300">
+        <div className="text-xl text-zinc-500 dark:text-slate-400 animate-pulse">Loading profile information...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#0b0f19] text-white relative overflow-hidden">
+    <div className="min-h-screen bg-white dark:bg-[#0b0f19] text-zinc-900 dark:text-white relative overflow-hidden transition-colors duration-300">
       {/* 🔮 Aesthetic Background Orbs */}
-      <div className="absolute top-0 -left-1/4 w-96 h-96 bg-indigo-600 rounded-full filter blur-[120px] opacity-20 pointer-events-none" />
-      <div className="absolute bottom-0 -right-1/4 w-96 h-96 bg-emerald-600 rounded-full filter blur-[120px] opacity-10 pointer-events-none" />
-      <div className="absolute top-1/3 right-1/4 w-64 h-64 bg-purple-600 rounded-full filter blur-[100px] opacity-10 pointer-events-none" />
+      <div className="absolute top-0 -left-1/4 w-96 h-96 bg-indigo-600 rounded-full filter blur-[120px] opacity-10 dark:opacity-20 pointer-events-none" />
+      <div className="absolute bottom-0 -right-1/4 w-96 h-96 bg-emerald-600 rounded-full filter blur-[120px] opacity-10 dark:opacity-10 pointer-events-none" />
+      <div className="absolute top-1/3 right-1/4 w-64 h-64 bg-purple-600 rounded-full filter blur-[100px] opacity-10 dark:opacity-10 pointer-events-none" />
 
       <div className="relative z-10">
         <Navbar />
 
         <div className="max-w-2xl mx-auto px-4 py-12">
-          <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl">
+          <div className="bg-zinc-50 dark:bg-white/5 backdrop-blur-xl border border-zinc-200 dark:border-white/10 rounded-2xl p-8 shadow-2xl transition-colors duration-300">
             
             <div className="mb-8">
-              <span className="text-xs font-semibold tracking-wider text-indigo-400 uppercase mb-1 block">
+              <span className="text-xs font-semibold tracking-wider text-indigo-600 dark:text-indigo-400 uppercase mb-1 block">
                 User Settings
               </span>
-              <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-300">
+              <h1 className="text-4xl font-extrabold text-zinc-900 dark:text-transparent dark:bg-clip-text dark:bg-gradient-to-r dark:from-white dark:to-slate-300 transition-colors">
                 My Profile
               </h1>
-              <p className="text-slate-400 mt-1">Manage your account and viewing personal metrics parameters</p>
+              <p className="text-zinc-500 dark:text-slate-400 mt-1">Manage your account and viewing personal metrics parameters</p>
             </div>
 
             <div className="space-y-6">
-              <div className="bg-white/5 p-4 rounded-xl border border-white/5 hover:bg-white/10 transition-all duration-300">
-                <label className="block text-xs font-medium uppercase tracking-wider text-slate-400 mb-1">Full Name</label>
-                <p className="text-xl font-bold text-white">
+              <div className="bg-white dark:bg-white/5 p-4 rounded-xl border border-zinc-100 dark:border-white/5 hover:bg-zinc-50 dark:hover:bg-white/10 transition-all duration-300 shadow-sm">
+                <label className="block text-xs font-medium uppercase tracking-wider text-zinc-400 dark:text-slate-400 mb-1">Full Name</label>
+                <p className="text-xl font-bold text-zinc-900 dark:text-white">
                   {profileData?.full_name || 'Not Available'}
                 </p>
               </div>
 
-              <div className="bg-white/5 p-4 rounded-xl border border-white/5 hover:bg-white/10 transition-all duration-300">
-                <label className="block text-xs font-medium uppercase tracking-wider text-slate-400 mb-1">Email Address</label>
-                <p className="text-xl font-bold text-white">{user?.email}</p>
+              <div className="bg-white dark:bg-white/5 p-4 rounded-xl border border-zinc-100 dark:border-white/5 hover:bg-zinc-50 dark:hover:bg-white/10 transition-all duration-300 shadow-sm">
+                <label className="block text-xs font-medium uppercase tracking-wider text-zinc-400 dark:text-slate-400 mb-1">Email Address</label>
+                <p className="text-xl font-bold text-zinc-900 dark:text-white">{user?.email}</p>
               </div>
 
-              <div className="bg-white/5 p-4 rounded-xl border border-white/5 hover:bg-white/10 transition-all duration-300">
-                <label className="block text-xs font-medium uppercase tracking-wider text-slate-400 mb-1">Mobile Number</label>
-                <p className="text-xl font-bold text-indigo-300">
+              <div className="bg-white dark:bg-white/5 p-4 rounded-xl border border-zinc-100 dark:border-white/5 hover:bg-zinc-50 dark:hover:bg-white/10 transition-all duration-300 shadow-sm">
+                <label className="block text-xs font-medium uppercase tracking-wider text-zinc-400 dark:text-slate-400 mb-1">Mobile Number</label>
+                <p className="text-xl font-bold text-indigo-600 dark:text-indigo-300">
                   {profileData?.mobile_number || 'Not Available'}
                 </p>
               </div>
 
-              <div className="bg-white/5 p-4 rounded-xl border border-white/5 hover:bg-white/10 transition-all duration-300">
-                <label className="block text-xs font-medium uppercase tracking-wider text-slate-400 mb-1">Date of Birth</label>
-                <p className="text-xl font-bold text-white">
+              <div className="bg-white dark:bg-white/5 p-4 rounded-xl border border-zinc-100 dark:border-white/5 hover:bg-zinc-50 dark:hover:bg-white/10 transition-all duration-300 shadow-sm">
+                <label className="block text-xs font-medium uppercase tracking-wider text-zinc-400 dark:text-slate-400 mb-1">Date of Birth</label>
+                <p className="text-xl font-bold text-zinc-900 dark:text-white">
                   {profileData?.date_of_birth 
                     ? formatToDDMMYYYY(profileData.date_of_birth) 
                     : 'Not Available'}
                 </p>
               </div>
 
-              <div className="bg-white/5 p-4 rounded-xl border border-white/5 hover:bg-white/10 transition-all duration-300">
-                <label className="block text-xs font-medium uppercase tracking-wider text-slate-400 mb-1">Member Since</label>
-                <p className="text-xl font-bold text-emerald-300">
+              <div className="bg-white dark:bg-white/5 p-4 rounded-xl border border-zinc-100 dark:border-white/5 hover:bg-zinc-50 dark:hover:bg-white/10 transition-all duration-300 shadow-sm">
+                <label className="block text-xs font-medium uppercase tracking-wider text-zinc-400 dark:text-slate-400 mb-1">Member Since</label>
+                <p className="text-xl font-bold text-emerald-600 dark:text-emerald-300">
                   {profileData?.created_at 
                     ? formatToDDMMYYYY(profileData.created_at) 
                     : 'Not Available'}

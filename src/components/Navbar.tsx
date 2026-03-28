@@ -5,6 +5,8 @@ import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
+import { ThemeToggle } from './ThemeToggle';
+
 export default function Navbar() {
   const { user, profile, isAdmin, logOut } = useAuth();
   const router = useRouter();
@@ -32,13 +34,13 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="bg-[#0b0f19] text-white border-b border-white/5 relative z-50">
+    <nav className="bg-zinc-50 dark:bg-[#0b0f19] text-zinc-900 dark:text-white border-b border-zinc-200 dark:border-white/5 relative z-50 transition-colors duration-300">
       <div className="max-w-6xl mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
           
           <Link 
             href="/dashboard" 
-            className="flex items-center gap-3 text-xl font-bold tracking-tight text-white hover:text-indigo-300 transition-colors uppercase">
+            className="flex items-center gap-3 text-xl font-bold tracking-tight text-zinc-900 dark:text-white hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors uppercase">
             {/* 🖼️ Icon set to 32x32px (w-8 h-8 in Tailwind is 32px) */}
             <img 
               src="/my-logo.png" 
@@ -49,17 +51,17 @@ export default function Navbar() {
             <span>LAKSHMI TECHNICAL INSTITUTE</span>
           </Link>
 
-          <div className="flex items-center gap-6" ref={dropdownRef}>
+          <div className="flex items-center gap-4 md:gap-6" ref={dropdownRef}>
             
             {/* 📊 Dashboard Button (Placed to the left of Typing Tests) */}
-            <Link href="/dashboard" className="text-white hover:bg-white/10 px-4 py-2 rounded-lg transition-colors">
+            <Link href="/dashboard" className="text-zinc-700 dark:text-white hover:bg-zinc-100 dark:hover:bg-white/10 px-3 py-2 rounded-lg transition-colors">
               Dashboard
             </Link>
 
             <div className="relative">
               <button
                 onClick={() => setOpenDropdown(openDropdown === 'tests' ? null : 'tests')}
-                className="text-white hover:bg-white/10 px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+                className="text-zinc-700 dark:text-white hover:bg-zinc-100 dark:hover:bg-white/10 px-3 py-2 rounded-lg transition-colors flex items-center gap-2"
               >
                 Typing Tests
                 <svg
@@ -73,25 +75,25 @@ export default function Navbar() {
               </button>
 
               {openDropdown === 'tests' && (
-                <div className="absolute top-full mt-2 bg-[#111827] border border-white/10 rounded-xl shadow-2xl py-2 w-64 z-50">
+                <div className="absolute top-full mt-2 bg-white dark:bg-[#111827] border border-zinc-200 dark:border-white/10 rounded-xl shadow-2xl py-2 w-64 z-50">
                   <div>
-                    <p className="px-4 py-2 text-xs font-semibold tracking-wider text-indigo-400 uppercase">English</p>
-                    <Link href="/typing-test/english/junior" className="block px-4 py-2 text-sm text-white hover:bg-white/5 transition-colors">
+                    <p className="px-4 py-2 text-xs font-semibold tracking-wider text-indigo-600 dark:text-indigo-400 uppercase">English</p>
+                    <Link href="/typing-test/english/junior" className="block px-4 py-2 text-sm text-zinc-700 dark:text-white hover:bg-zinc-100 dark:hover:bg-white/5 transition-colors">
                       Junior (30 WPM / 1500)
                     </Link>
-                    <Link href="/typing-test/english/senior" className="block px-4 py-2 text-sm text-white hover:bg-white/5 transition-colors">
+                    <Link href="/typing-test/english/senior" className="block px-4 py-2 text-sm text-zinc-700 dark:text-white hover:bg-zinc-100 dark:hover:bg-white/5 transition-colors">
                       Senior (45 WPM / 2250)
                     </Link>
                   </div>
 
-                  <hr className="my-2 border-white/5" />
+                  <hr className="my-2 border-zinc-200 dark:border-white/5" />
 
                   <div>
-                    <p className="px-4 py-2 text-xs font-semibold tracking-wider text-indigo-400 uppercase">Tamil</p>
-                    <Link href="/typing-test/tamil/junior" className="block px-4 py-2 text-sm text-white hover:bg-white/5 transition-colors">
+                    <p className="px-4 py-2 text-xs font-semibold tracking-wider text-indigo-600 dark:text-indigo-400 uppercase">Tamil</p>
+                    <Link href="/typing-test/tamil/junior" className="block px-4 py-2 text-sm text-zinc-700 dark:text-white hover:bg-zinc-100 dark:hover:bg-white/5 transition-colors">
                       Junior (30 WPM / 1500)
                     </Link>
-                    <Link href="/typing-test/tamil/senior" className="block px-4 py-2 text-sm text-white hover:bg-white/5 transition-colors">
+                    <Link href="/typing-test/tamil/senior" className="block px-4 py-2 text-sm text-zinc-700 dark:text-white hover:bg-zinc-100 dark:hover:bg-white/5 transition-colors">
                       Senior (45 WPM / 2250)
                     </Link>
                   </div>
@@ -99,13 +101,15 @@ export default function Navbar() {
               )}
             </div>
 
-            <Link href="/leaderboard" className="text-white hover:bg-white/10 px-4 py-2 rounded-lg transition-colors">
+            <Link href="/leaderboard" className="hidden md:block text-zinc-700 dark:text-white hover:bg-zinc-100 dark:hover:bg-white/10 px-3 py-2 rounded-lg transition-colors">
               Leaderboard
             </Link>
 
-            <Link href="/contact" className="text-white hover:bg-white/10 px-4 py-2 rounded-lg transition-colors">
+            <Link href="/contact" className="hidden lg:block text-zinc-700 dark:text-white hover:bg-zinc-100 dark:hover:bg-white/10 px-3 py-2 rounded-lg transition-colors">
               Contact
             </Link>
+
+            <ThemeToggle />
 
             {isAdmin && (
             <Link 
@@ -119,9 +123,12 @@ export default function Navbar() {
             <div className="relative">
               <button
                 onClick={() => setOpenDropdown(openDropdown === 'profile' ? null : 'profile')}
-                className="text-white hover:bg-white/10 px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+                className="text-zinc-700 dark:text-white hover:bg-zinc-100 dark:hover:bg-white/10 px-3 py-2 rounded-lg transition-colors flex items-center gap-2"
               >
-                {profile?.full_name || 'Account'}
+                <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white text-xs font-bold">
+                  {(profile?.full_name || 'U').charAt(0).toUpperCase()}
+                </div>
+                <span className="hidden sm:inline">{profile?.full_name || 'Account'}</span>
                 <svg
                   className={`w-4 h-4 text-slate-400 transition-transform ${openDropdown === 'profile' ? 'rotate-180' : ''}`}
                   fill="none"
@@ -133,19 +140,19 @@ export default function Navbar() {
               </button>
 
               {openDropdown === 'profile' && (
-                <div className="absolute top-full mt-2 bg-[#111827] border border-white/10 rounded-xl shadow-2xl py-2 w-56 z-50 right-0">
-                  <div className="px-4 py-3 border-b border-white/10">
-                    <p className="font-semibold text-sm text-white truncate">{profile?.full_name || 'Typist'}</p>
-                    <p className="text-xs text-slate-400 truncate">{user?.email}</p>
+                <div className="absolute top-full mt-2 bg-white dark:bg-[#111827] border border-zinc-200 dark:border-white/10 rounded-xl shadow-2xl py-2 w-56 z-50 right-0">
+                  <div className="px-4 py-3 border-b border-zinc-200 dark:border-white/10">
+                    <p className="font-semibold text-sm text-zinc-900 dark:text-white truncate">{profile?.full_name || 'Typist'}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{user?.email}</p>
                   </div>
                   
-                  <Link href="/profile" className="block px-4 py-2 text-sm text-white hover:bg-white/5 transition-colors">
+                  <Link href="/profile" className="block px-4 py-2 text-sm text-zinc-700 dark:text-white hover:bg-zinc-100 dark:hover:bg-white/5 transition-colors">
                     My Profile
                   </Link>
 
                   <button
                     onClick={handleLogOut}
-                    className="w-full text-left px-4 py-2 text-sm text-red-400 font-semibold hover:bg-red-500/10 transition-colors"
+                    className="w-full text-left px-4 py-2 text-sm text-red-500 font-semibold hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
                   >
                     Log Out
                   </button>

@@ -36,32 +36,32 @@ export default function LogIn() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0b0f19] text-white flex items-center justify-center py-12 px-4 relative overflow-hidden">
+    <div className="min-h-screen bg-zinc-50 dark:bg-[#0b0f19] text-zinc-900 dark:text-white flex items-center justify-center py-12 px-4 relative overflow-hidden transition-colors duration-300">
       
       {/* 🔮 Background Glow Orbs for Glassmorphism Context */}
-      <div className="absolute top-0 -left-1/4 w-96 h-96 bg-indigo-600 rounded-full filter blur-[120px] opacity-20 pointer-events-none" />
-      <div className="absolute bottom-0 -right-1/4 w-96 h-96 bg-emerald-600 rounded-full filter blur-[120px] opacity-10 pointer-events-none" />
+      <div className="absolute top-0 -left-1/4 w-96 h-96 bg-indigo-600 rounded-full filter blur-[120px] opacity-10 dark:opacity-20 pointer-events-none" />
+      <div className="absolute bottom-0 -right-1/4 w-96 h-96 bg-emerald-600 rounded-full filter blur-[120px] opacity-10 dark:opacity-10 pointer-events-none" />
 
-      <div className="w-full max-w-md bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-8 relative z-10">
+      <div className="w-full max-w-md bg-zinc-50 dark:bg-white/5 backdrop-blur-xl border border-zinc-200 dark:border-white/10 rounded-2xl shadow-2xl p-8 relative z-10 transition-colors duration-300">
         <div className="mb-8">
-          <span className="text-xs font-semibold tracking-wider text-indigo-400 uppercase mb-1 block text-center">
+          <span className="text-xs font-semibold tracking-wider text-indigo-600 dark:text-indigo-400 uppercase mb-1 block text-center">
             Student Portal
           </span>
-          <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-300 text-center">
+          <h1 className="text-3xl font-bold text-zinc-900 dark:text-transparent bg-clip-text dark:bg-gradient-to-r dark:from-white dark:to-slate-300 text-center">
             Lakshmi Technical Institute
           </h1>
-          <p className="text-center text-slate-400 mt-2">Welcome back to your typing dashboard</p>
+          <p className="text-center text-zinc-500 dark:text-slate-400 mt-2">Welcome back to your typing dashboard</p>
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm flex items-center gap-2">
+          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-red-600 dark:text-red-400 text-sm flex items-center gap-2">
             <span>⚠️</span> {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
+            <label className="block text-sm font-medium text-zinc-700 dark:text-slate-300 mb-2">
               Email Address
             </label>
             <input
@@ -70,13 +70,13 @@ export default function LogIn() {
               value={formData.email}
               onChange={handleChange}
               required
-              className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-white placeholder-slate-500"
+              className="w-full px-4 py-2.5 bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-slate-500 transition-colors duration-300"
               placeholder="example@gmail.com"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
+            <label className="block text-sm font-medium text-zinc-700 dark:text-slate-300 mb-2">
               Password
             </label>
             <input
@@ -85,7 +85,7 @@ export default function LogIn() {
               value={formData.password}
               onChange={handleChange}
               required
-              className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-white placeholder-slate-500"
+              className="w-full px-4 py-2.5 bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-slate-500 transition-colors duration-300"
               placeholder="••••••••"
             />
           </div>
@@ -100,9 +100,9 @@ export default function LogIn() {
         </form>
 
         <div className="mt-8 text-center">
-          <p className="text-slate-400 text-sm">
+          <p className="text-zinc-500 dark:text-slate-400 text-sm">
             Don't have an account?{' '}
-            <Link href="/signup" className="text-indigo-400 hover:text-indigo-300 font-semibold underline underline-offset-4 transition-colors">
+            <Link href="/signup" className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 font-semibold underline underline-offset-4 transition-colors">
               Sign Up
             </Link>
           </p>
@@ -110,4 +110,4 @@ export default function LogIn() {
       </div>
     </div>
   );
-}
+}

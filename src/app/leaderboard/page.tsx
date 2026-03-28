@@ -91,48 +91,48 @@ export default function Leaderboard() {
     };
 
     fetchLeaderboard();
-  }, []);
+  }, [user, loading, router]);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0b0f19] flex items-center justify-center">
-        <div className="text-xl text-slate-400 animate-pulse">Loading Leaderboard...</div>
+      <div className="min-h-screen bg-white dark:bg-[#0b0f19] flex items-center justify-center transition-colors duration-300">
+        <div className="text-xl text-zinc-500 dark:text-slate-400 animate-pulse">Loading Leaderboard...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#0b0f19] text-white relative overflow-hidden">
-      <div className="absolute top-0 -left-1/4 w-96 h-96 bg-indigo-600 rounded-full filter blur-[120px] opacity-20 pointer-events-none" />
-      <div className="absolute bottom-0 -right-1/4 w-96 h-96 bg-emerald-600 rounded-full filter blur-[120px] opacity-10 pointer-events-none" />
+    <div className="min-h-screen bg-white dark:bg-[#0b0f19] text-zinc-900 dark:text-white relative overflow-hidden transition-colors duration-300">
+      <div className="absolute top-0 -left-1/4 w-96 h-96 bg-indigo-600 rounded-full filter blur-[120px] opacity-10 dark:opacity-20 pointer-events-none" />
+      <div className="absolute bottom-0 -right-1/4 w-96 h-96 bg-emerald-600 rounded-full filter blur-[120px] opacity-10 dark:opacity-10 pointer-events-none" />
 
       <div className="relative z-10">
         <Navbar />
 
         <div className="max-w-6xl mx-auto px-4 py-12">
           
-          <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 mb-8 shadow-2xl">
+          <div className="bg-zinc-50 dark:bg-white/5 backdrop-blur-xl border border-zinc-200 dark:border-white/10 rounded-2xl p-8 mb-8 shadow-2xl transition-colors duration-300">
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div>
-                <span className="text-xs font-semibold tracking-wider text-indigo-400 uppercase mb-1 block">
+                <span className="text-xs font-semibold tracking-wider text-indigo-600 dark:text-indigo-400 uppercase mb-1 block">
                   Global Leaderboard
                 </span>
-                <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-300">
+                <h1 className="text-4xl font-extrabold text-zinc-900 dark:text-transparent dark:bg-clip-text dark:bg-gradient-to-r dark:from-white dark:to-slate-300 transition-colors">
                   Top Typists Rankings
                 </h1>
-                <p className="text-slate-400 mt-1">See how you measure up against standard class percentiles</p>
+                <p className="text-zinc-500 dark:text-slate-400 mt-1">See how you measure up against standard class percentiles</p>
               </div>
             </div>
           </div>
 
           {/* 🏆 Rank Display Table */}
-          <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-8 mb-12 shadow-2xl overflow-x-auto">
+          <div className="bg-white dark:bg-white/5 backdrop-blur-md border border-zinc-200 dark:border-white/10 rounded-2xl p-8 mb-12 shadow-2xl overflow-x-auto transition-colors duration-300">
             {statsLoading ? (
-              <div className="text-center text-slate-400 py-12 animate-pulse">Pulling scoreboard metrics...</div>
+              <div className="text-center text-zinc-500 dark:text-slate-400 py-12 animate-pulse">Pulling scoreboard metrics...</div>
             ) : leaderboard.length > 0 ? (
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-white/10 text-slate-300 text-sm font-semibold tracking-wider uppercase">
+                  <tr className="border-b border-zinc-200 dark:border-white/10 text-zinc-700 dark:text-slate-300 text-sm font-semibold tracking-wider uppercase">
                     <th className="py-4 px-4">Rank</th>
                     <th className="py-4 px-4">Name</th>
                     <th className="py-4 px-4 text-center">Best WPM</th>
@@ -148,26 +148,26 @@ export default function Leaderboard() {
                     return (
                       <tr 
                         key={entry.user_id} 
-                        className={`border-b border-white/5 transition-colors hover:bg-white/5 ${isCurrentUser ? 'bg-indigo-500/20 font-bold' : ''}`}
+                        className={`border-b border-zinc-100 dark:border-white/5 transition-colors hover:bg-zinc-50 dark:hover:bg-white/5 ${isCurrentUser ? 'bg-indigo-500/10 dark:bg-indigo-500/20 font-bold' : ''}`}
                       >
                         <td className="py-5 px-4">
                           {rank === 1 ? '🥇 1st' : rank === 2 ? '🥈 2nd' : rank === 3 ? '🥉 3rd' : `${rank}th`}
                         </td>
                         <td className="py-5 px-4 flex items-center gap-2">
-                          {entry.full_name} 
-                          {isCurrentUser && <span className="text-xs bg-indigo-500 text-white px-2 py-0.5 rounded-full">You</span>}
+                          <span className="text-zinc-900 dark:text-white">{entry.full_name}</span> 
+                          {isCurrentUser && <span className="text-xs bg-indigo-600 text-white px-2 py-0.5 rounded-full">You</span>}
                         </td>
-                        <td className="py-5 px-4 text-center text-indigo-300 font-bold">{entry.max_wpm}</td>
-                        <td className="py-5 px-4 text-center text-emerald-300">{entry.avg_accuracy}%</td>
-                        <td className="py-5 px-4 text-center text-purple-300">{entry.total_tests}</td>
+                        <td className="py-5 px-4 text-center text-indigo-600 dark:text-indigo-300 font-bold">{entry.max_wpm}</td>
+                        <td className="py-5 px-4 text-center text-emerald-600 dark:text-emerald-300">{entry.avg_accuracy}%</td>
+                        <td className="py-5 px-4 text-center text-purple-600 dark:text-purple-300">{entry.total_tests}</td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
             ) : (
-              <div className="flex flex-col items-center justify-center h-64 text-slate-500">
-                <p className="text-lg">No entries found yet.</p>
+              <div className="flex flex-col items-center justify-center h-64 text-zinc-500 dark:text-slate-500">
+                <p className="text-lg font-medium">No entries found yet.</p>
                 <p className="text-sm mt-1">Be the first to finish a typing trial and stake your claim!</p>
               </div>
             )}
