@@ -45,17 +45,6 @@ export function ThemeToggle() {
       >
         <Moon size={18} strokeWidth={2.5} />
       </button>
-      <button
-        onClick={() => setTheme('system')}
-        className={`p-1.5 rounded-md transition-all duration-200 ${
-          theme === 'system'
-            ? 'bg-zinc-500 text-white shadow-md transform scale-110'
-            : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100'
-        }`}
-        title="System Preference"
-      >
-        <Monitor size={18} strokeWidth={2.5} />
-      </button>
     </div>
   );
 }

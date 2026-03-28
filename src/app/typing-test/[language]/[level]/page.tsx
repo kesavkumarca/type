@@ -31,51 +31,70 @@ export default function TypingTest() {
   const [results, setResults] = useState<any>(null);
   const [pageLoading, setPageLoading] = useState(true);
 
+  // ✅ New state to hold student profile name from profiles table
+  const [profileName, setProfileName] = useState<string>('');
+
   // ⚙️ Toggles & Settings
   const [backspaceEnabled, setBackspaceEnabled] = useState(true); // Default enabled
 
   // 🛡️ Track submit locks
-  const [isSubmitting, setIsSubmitting] = useState(false); 
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // 📜 References to bypass stale closures
   const passageContainerRef = useRef<HTMLDivElement>(null);
   const activeWordRef = useRef<HTMLSpanElement>(null);
-  const userInputRef = useRef(''); 
+  const userInputRef = useRef('');
 
   useEffect(() => {
     userInputRef.current = userInput;
   }, [userInput]);
 
-  // Fetch passage
+  // Fetch passage & User Profile Data
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
     }
 
-    const fetchPassage = async () => {
+    const fetchData = async () => {
       try {
-        const { data, error } = await supabase
+        // 1. Fetch passage
+        const { data: passageData, error: passageError } = await supabase
           .from('passages')
           .select('*')
           .eq('language', language)
           .eq('level', level);
 
-        if (error) throw error;
+        if (passageError) throw passageError;
 
-        if (data && data.length > 0) {
-          const randomIndex = Math.floor(Math.random() * data.length);
-          setPassage(data[randomIndex]);
+        if (passageData && passageData.length > 0) {
+          const randomIndex = Math.floor(Math.random() * passageData.length);
+          setPassage(passageData[randomIndex]);
         } else {
           setPassage(null);
         }
+
+        // 2. ✅ Fetch student profile name from 'profiles' table using user.id
+        if (user) {
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('id', user.id)
+            .single();
+
+          if (!profileError && profileData) {
+            setProfileName(profileData.full_name);
+          }
+        }
       } catch (err) {
-        console.error('Error fetching passage:', err);
+        console.error('Error fetching data:', err);
       } finally {
         setPageLoading(false);
       }
     };
 
-    fetchPassage();
+    if (!loading && user) {
+      fetchData();
+    }
   }, [user, loading, router, language, level]);
 
   // 🧮 WORD-BASED Metric Calculation
@@ -83,49 +102,46 @@ export default function TypingTest() {
     if (!passage) return { wpm: 0, accuracy: 0, strokes: 0, correctWords: 0, mistakes: 0, marks: 0, passed: false };
 
     const strokes = userInput.length;
-    
+
     const targetWords = passage.text.trim().split(/\s+/).filter(Boolean);
     const typedWords = userInput.trim().split(/\s+/).filter(Boolean);
 
     let correctWords = 0;
     let mistakes = 0;
 
-    // Loop through TARGET WORDS to penalize skipped words
     targetWords.forEach((word, index) => {
       if (index < typedWords.length) {
         if (typedWords[index] === word) {
           correctWords++;
         } else {
-          mistakes++; // Wrong word
+          mistakes++;
         }
       } else {
-        mistakes++; // Skipped word
+        mistakes++;
       }
     });
 
     const elapsedSeconds = 600 - timeLeft;
 
-    // ⏳ FIX: Cap the minimum elapsed time to 10 seconds to stop WPM spikes at start!
     const activeElapsedSeconds = Math.max(elapsedSeconds, 10);
     const elapsedMinutes = activeElapsedSeconds / 60;
     const wpm = Math.round((strokes / 5) / elapsedMinutes);
 
-    // ✅ ACCURACY KEPT EXACTLY THE SAME (Untouched as requested)
     const accuracy = targetWords.length > 0 ? Math.round((correctWords / targetWords.length) * 100) : 0;
 
     const deductionPerMistake = level.toLowerCase() === 'senior' ? 1.25 : 1.8;
     const baseMarks = 100 - (mistakes * deductionPerMistake);
-    const marks = Math.max(0, parseFloat(baseMarks.toFixed(2))); 
-    const passed = marks >= 50; 
+    const marks = Math.max(0, parseFloat(baseMarks.toFixed(2)));
+    const passed = marks >= 50;
 
     return { wpm, accuracy, strokes, correctWords, mistakes, marks, passed, deductionPerMistake };
   }, [passage, userInput, timeLeft, level]);
 
   // Submit test
   const submitTest = useCallback(async (currentInput: string, currentTimeLeft: number) => {
-    if (!user || !passage || isSubmitting) return; 
+    if (!user || !passage || isSubmitting) return;
 
-    setIsSubmitting(true); 
+    setIsSubmitting(true);
 
     const strokes = currentInput.length;
     const targetWords = passage.text.trim().split(/\s+/).filter(Boolean);
@@ -151,13 +167,12 @@ export default function TypingTest() {
     const elapsedMinutes = activeElapsedSeconds / 60;
     const wpm = Math.round((strokes / 5) / elapsedMinutes);
 
-    // ✅ ACCURACY KEPT EXACTLY THE SAME (Untouched as requested)
     const accuracy = targetWords.length > 0 ? Math.round((correctWords / targetWords.length) * 100) : 0;
 
     const deductionPerMistake = level.toLowerCase() === 'senior' ? 1.25 : 1.8;
     const baseMarks = 100 - (mistakes * deductionPerMistake);
     const marks = Math.max(0, parseFloat(baseMarks.toFixed(2)));
-    const passed = marks >= 50; 
+    const passed = marks >= 50;
 
     const metrics = { wpm, accuracy, strokes, correctWords, mistakes, marks, passed, deductionPerMistake };
 
@@ -176,7 +191,7 @@ export default function TypingTest() {
         },
       ]);
 
-      if (error) throw error; 
+      if (error) throw error;
 
       setResults(metrics);
       setTestComplete(true);
@@ -185,7 +200,7 @@ export default function TypingTest() {
       setResults(metrics);
       setTestComplete(true);
     } finally {
-      setIsSubmitting(false); 
+      setIsSubmitting(false);
     }
   }, [user, passage, isSubmitting, language, level]);
 
@@ -198,7 +213,7 @@ export default function TypingTest() {
         if (prev <= 1) {
           clearInterval(timer);
           setTestComplete(true);
-          submitTest(userInputRef.current, 0); 
+          submitTest(userInputRef.current, 0);
           return 0;
         }
         return prev - 1;
@@ -220,7 +235,7 @@ export default function TypingTest() {
 
       if (wordOffsetTop >= containerTop + containerHeight - 80) {
         container.scrollTo({
-          top: wordOffsetTop - 100, 
+          top: wordOffsetTop - 100,
           behavior: 'smooth',
         });
       }
@@ -238,15 +253,18 @@ export default function TypingTest() {
     if (e.key === ' ') {
       const lastChar = userInput[userInput.length - 1];
       if (lastChar === ' ' || userInput === '') {
-        e.preventDefault(); 
+        e.preventDefault();
         return;
       }
     }
   };
 
-  // 📝 Standard White Paper PDF (Unlimited Auto Multi-paging)
+  // 📝 Standard White Paper PDF
   const generatePDFReport = () => {
     if (!results || !passage) return;
+
+    // ✅ Automatically use loaded profileName, or fallback to user email if name is empty
+    const studentName = profileName || user?.email || "N/A";
 
     const doc = new jsPDF({
       orientation: 'portrait',
@@ -256,13 +274,13 @@ export default function TypingTest() {
 
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-    const bottomMargin = 20; // Trigger line for page breaking
+    const bottomMargin = 20;
 
     // 🏷️ 1. Institute Branding Header
     doc.addImage('/lakshmi-logo.png', 'PNG', (pageWidth / 2) - 15, 15, 30, 30);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(22);
-    doc.setTextColor(0, 0, 0); // Black
+    doc.setTextColor(0, 0, 0);
     doc.text('LAKSHMI TECHNICAL INSTITUTE', pageWidth / 2, 55, { align: 'center' });
 
     doc.setFontSize(14);
@@ -275,47 +293,45 @@ export default function TypingTest() {
 
     // 👤 2. Student & Exam Info
     doc.setFontSize(12);
-    doc.text(`Student ID: ${user?.email || 'N/A'}`, 20, 85);
-    doc.text(`Language: ${language.toUpperCase()}`, 20, 93);
-    doc.text(`Exam Level: ${level.toUpperCase()}`, 20, 101);
-    doc.text(`Date generated: ${new Date().toLocaleDateString()}`, pageWidth - 20, 85, { align: 'right' });
+    doc.text(`Student Name: ${studentName}`, 20, 83);
+    doc.text(`Student ID: ${user?.email || 'N/A'}`, 20, 91);
+    doc.text(`Language: ${language.toUpperCase()}`, 20, 99);
+    doc.text(`Exam Level: ${level.toUpperCase()}`, 20, 107);
+    doc.text(`Date generated: ${new Date().toLocaleDateString()}`, pageWidth - 20, 83, { align: 'right' });
 
     // 📊 3. Table Metrics
-    doc.setFillColor(245, 245, 245); // Light Gray
-    doc.rect(20, 110, pageWidth - 40, 10, 'FD');
+    doc.setFillColor(245, 245, 245);
+    doc.rect(20, 115, pageWidth - 40, 10, 'FD');
     doc.setFont('helvetica', 'bold');
-    doc.text('Examination Parameter', 25, 116);
-    doc.text('Obtained Metric', pageWidth - 25, 116, { align: 'right' });
+    doc.text('Examination Parameter', 25, 121);
+    doc.text('Obtained Metric', pageWidth - 25, 121, { align: 'right' });
 
     doc.setFont('helvetica', 'normal');
-    doc.text('Gross Speed', 25, 128);
-    doc.text(`${results.wpm} WPM`, pageWidth - 25, 128, { align: 'right' });
-    doc.line(20, 132, pageWidth - 20, 132);
+    doc.text('Gross Speed', 25, 133);
+    doc.text(`${results.wpm} WPM`, pageWidth - 25, 133, { align: 'right' });
+    doc.line(20, 137, pageWidth - 20, 137);
 
-    doc.text('Total Strokes Keyed', 25, 140);
-    doc.text(`${results.strokes}`, pageWidth - 25, 140, { align: 'right' });
-    doc.line(20, 144, pageWidth - 20, 144);
+    doc.text('Total Strokes Keyed', 25, 145);
+    doc.text(`${results.strokes}`, pageWidth - 25, 145, { align: 'right' });
+    doc.line(20, 149, pageWidth - 20, 149);
 
-    doc.text('Word Mistakes Committed', 25, 152);
-    doc.text(`${results.mistakes}`, pageWidth - 25, 152, { align: 'right' });
-    doc.line(20, 156, pageWidth - 20, 156);
+    doc.text('Word Mistakes Committed', 25, 157);
+    doc.text(`${results.mistakes}`, pageWidth - 25, 157, { align: 'right' });
+    doc.line(20, 161, pageWidth - 20, 161);
 
-    doc.text('Grade Accuracy Ratio', 25, 164);
-    doc.text(`${results.accuracy}%`, pageWidth - 25, 164, { align: 'right' });
-    doc.line(20, 168, pageWidth - 20, 168);
+    doc.text('Grade Accuracy Ratio', 25, 169);
+    doc.text(`${results.accuracy}%`, pageWidth - 25, 169, { align: 'right' });
+    doc.line(20, 173, pageWidth - 20, 173);
 
     doc.setFont('helvetica', 'bold');
-    
-    // ✅ ADDED FIX: Light Grey color override sets painter so it doesn't default to Black redacted box
-    doc.setFillColor(245, 245, 245); 
-    
-    doc.rect(20, 175, pageWidth - 40, 12, 'FD');
-    doc.text('NET AGGREGATE MARKS', 25, 183);
-    doc.text(`${results.marks} / 100`, pageWidth - 25, 183, { align: 'right' });
+    doc.setFillColor(245, 245, 245);
+    doc.rect(20, 180, pageWidth - 40, 12, 'FD');
+    doc.text('NET AGGREGATE MARKS', 25, 188);
+    doc.text(`${results.marks} / 100`, pageWidth - 25, 188, { align: 'right' });
 
     // 🔴 🔍 4. HIGHLIGHT WRONG + SKIPPED WORDS EVALUATION
     doc.setFontSize(14);
-    doc.text('Individual Word Mistake Analysis Log', 20, 205);
+    doc.text('Individual Word Mistake Analysis Log', 20, 208);
     doc.setFontSize(11);
     doc.setFont('helvetica', 'normal');
 
@@ -323,43 +339,41 @@ export default function TypingTest() {
     const typedWords = userInput.trim().split(/\s+/).filter(Boolean);
 
     let startX = 20;
-    let startY = 215;
+    let startY = 218;
     const marginY = 8;
-    const marginX = doc.getTextWidth(' ') + 2; 
+    const marginX = doc.getTextWidth(' ') + 2;
 
     targetWords.forEach((word, index) => {
       const isTyped = index < typedWords.length;
       const isWrong = isTyped && typedWords[index] !== word;
       const isSkipped = !isTyped;
-      
+
       const wordWidth = doc.getTextWidth(word);
 
-      // Horizontal text-wrap check
       if (startX + wordWidth > pageWidth - 20) {
         startX = 20;
         startY += marginY;
       }
 
-      // 🚨 AUTOMATIC VERTICAL PAGE-OVERFLOW CHECK
       if (startY > pageHeight - bottomMargin) {
         doc.addPage();
-        startY = 25; // Reset to top of secondary page
-        startX = 20; // Reset left margin
+        startY = 25;
+        startX = 20;
       }
 
       if (isWrong) {
-        doc.setTextColor(220, 50, 50); // High-contrast Red
+        doc.setTextColor(220, 50, 50);
         doc.setFont('helvetica', 'bold');
         doc.text(typedWords[index], startX, startY);
         doc.setDrawColor(220, 50, 50);
-        doc.line(startX, startY + 1, startX + wordWidth, startY + 1); 
-        doc.setTextColor(0, 0, 0); 
+        doc.line(startX, startY + 1, startX + wordWidth, startY + 1);
+        doc.setTextColor(0, 0, 0);
         doc.setFont('helvetica', 'normal');
       } else if (isSkipped) {
-        doc.setTextColor(150, 150, 150); // Classic gray for skipped
+        doc.setTextColor(150, 150, 150);
         doc.setFont('helvetica', 'italic');
         doc.text(word, startX, startY);
-        doc.setTextColor(0, 0, 0); 
+        doc.setTextColor(0, 0, 0);
         doc.setFont('helvetica', 'normal');
       } else {
         doc.text(word, startX, startY);
@@ -368,7 +382,6 @@ export default function TypingTest() {
       startX += wordWidth + marginX;
     });
 
-    // 🏁 5. Final Verdict (Check if verdict needs its own page)
     if (startY + 30 > pageHeight - bottomMargin) {
       doc.addPage();
       startY = 25;
@@ -377,30 +390,29 @@ export default function TypingTest() {
     const passedText = results.passed ? 'VERDICT: EXAMINATION PASSED' : 'VERDICT: EXAMINATION UNSUCCESSFUL';
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    
-    // Position it safely 20mm from the left margin
-    doc.text(passedText, 20, startY + 20); 
+
+    doc.text(passedText, 20, startY + 20);
 
     doc.save(`LTITypingTest-${language}-${level}.pdf`);
   };
 
   if (pageLoading || loading) {
     return (
-      <div className="min-h-screen bg-zinc-50 dark:bg-[#0b0f19] flex items-center justify-center transition-colors duration-300">
-        <div className="text-xl text-zinc-500 dark:text-slate-400 animate-pulse">Loading typing trial...</div>
+      <div className="min-h-screen bg-[#0b0f19] flex items-center justify-center">
+        <div className="text-xl text-slate-400 animate-pulse">Loading typing trial...</div>
       </div>
     );
   }
 
   if (!passage) {
     return (
-      <div className="min-h-screen bg-zinc-50 dark:bg-[#0b0f19] text-zinc-900 dark:text-white transition-colors duration-300">
+      <div className="min-h-screen bg-[#0b0f19] text-white">
         <Navbar />
         <div className="max-w-4xl mx-auto px-4 py-12">
-          <div className="bg-zinc-50 dark:bg-white/5 backdrop-blur-md border border-zinc-200 dark:border-white/10 p-12 rounded-2xl text-center shadow-2xl transition-colors duration-300">
-            <h1 className="text-4xl font-bold text-zinc-900 dark:text-transparent dark:bg-clip-text dark:bg-gradient-to-r dark:from-white dark:to-slate-300 mb-4">No Passage Available</h1>
-            <p className="text-zinc-500 dark:text-slate-400 mb-8">No passage found for {language} {level}.</p>
-            <Link href="/dashboard" className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 font-semibold underline underline-offset-4 transition-colors">
+          <div className="bg-white/5 backdrop-blur-md border border-white/10 p-12 rounded-2xl text-center shadow-2xl">
+            <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-300 mb-4">No Passage Available</h1>
+            <p className="text-slate-400 mb-8">No passage found for {language} {level}.</p>
+            <Link href="/dashboard" className="text-indigo-400 hover:text-indigo-300 font-semibold underline underline-offset-4">
               Back to Dashboard
             </Link>
           </div>
@@ -413,56 +425,56 @@ export default function TypingTest() {
     const overallPassed = results.passed;
 
     return (
-      <div className="min-h-screen bg-zinc-50 dark:bg-[#0b0f19] text-zinc-900 dark:text-white relative overflow-hidden pb-12 transition-colors duration-300">
-        <div className="absolute top-0 -left-1/4 w-96 h-96 bg-indigo-600 rounded-full filter blur-[120px] opacity-10 dark:opacity-20 pointer-events-none" />
-        <div className="absolute bottom-0 -right-1/4 w-96 h-96 bg-emerald-600 rounded-full filter blur-[120px] opacity-10 dark:opacity-10 pointer-events-none" />
+      <div className="min-h-screen bg-[#0b0f19] text-white relative overflow-hidden pb-12">
+        <div className="absolute top-0 -left-1/4 w-96 h-96 bg-indigo-600 rounded-full filter blur-[120px] opacity-20 pointer-events-none" />
+        <div className="absolute bottom-0 -right-1/4 w-96 h-96 bg-emerald-600 rounded-full filter blur-[120px] opacity-10 pointer-events-none" />
 
         <Navbar />
         <div className="max-w-5xl mx-auto px-4 py-12 relative z-10">
-          <div className="bg-zinc-50 dark:bg-white/5 backdrop-blur-xl border border-zinc-200 dark:border-white/10 rounded-2xl p-8 text-center shadow-2xl transition-colors duration-300">
-            <h1 className="text-4xl font-extrabold text-zinc-900 dark:text-transparent dark:bg-clip-text dark:bg-gradient-to-r dark:from-white dark:to-slate-300 mb-8">Test Complete!</h1>
+          <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 text-center shadow-2xl">
+            <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-300 mb-8">Test Complete!</h1>
 
-            <div className="mb-8 max-w-sm mx-auto p-6 rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 shadow-2xl flex flex-col items-center justify-center transition-colors duration-300">
-              <span className="text-xs font-semibold tracking-wider text-zinc-500 dark:text-slate-400 uppercase">Total Marks Obtained</span>
-              <span className="text-6xl font-black text-indigo-600 dark:text-indigo-400 my-2">{results.marks}</span>
+            <div className="mb-8 max-w-sm mx-auto p-6 rounded-2xl border border-white/10 bg-white/5 shadow-2xl flex flex-col items-center justify-center">
+              <span className="text-xs font-semibold tracking-wider text-slate-400 uppercase">Total Marks Obtained</span>
+              <span className="text-6xl font-black text-indigo-400 my-2">{results.marks}</span>
               <span className={`px-4 py-1 rounded-full text-xs font-bold text-white mt-1 shadow-md ${overallPassed ? 'bg-emerald-600 shadow-emerald-500/30' : 'bg-red-600 shadow-red-500/30'}`}>
                 {overallPassed ? 'PASSED ✅' : 'FAILED ❌'}
               </span>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-12">
-              <div className="p-5 rounded-xl bg-white dark:bg-white/5 border border-zinc-100 dark:border-white/5 shadow-sm transition-colors duration-300">
-                <p className="text-zinc-500 dark:text-slate-400 text-xs font-medium uppercase tracking-wider">Speed</p>
-                <p className="text-3xl font-extrabold mt-2 text-zinc-900 dark:text-white">
-                  {results.wpm} <span className="text-xs font-normal text-zinc-500 dark:text-slate-400">WPM</span>
+              <div className="p-5 rounded-xl bg-white/5 border border-white/5">
+                <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Speed</p>
+                <p className="text-3xl font-extrabold mt-2 text-white">
+                  {results.wpm} <span className="text-xs font-normal text-slate-400">WPM</span>
                 </p>
               </div>
 
-              <div className="p-5 rounded-xl bg-white dark:bg-white/5 border border-zinc-100 dark:border-white/5 shadow-sm transition-colors duration-300">
-                <p className="text-zinc-500 dark:text-slate-400 text-xs font-medium uppercase tracking-wider">Correct Words</p>
-                <p className="text-3xl font-extrabold mt-2 text-emerald-600 dark:text-emerald-400">
+              <div className="p-5 rounded-xl bg-white/5 border border-white/5">
+                <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Correct Words</p>
+                <p className="text-3xl font-extrabold mt-2 text-emerald-400">
                   {results.correctWords}
                 </p>
               </div>
 
-              <div className="p-5 rounded-xl bg-white dark:bg-white/5 border border-zinc-100 dark:border-white/5 shadow-sm transition-colors duration-300">
-                <p className="text-zinc-500 dark:text-slate-400 text-xs font-medium uppercase tracking-wider">Mistakes</p>
-                <p className="text-3xl font-extrabold mt-2 text-red-600 dark:text-red-400">
+              <div className="p-5 rounded-xl bg-white/5 border border-white/5">
+                <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Mistakes</p>
+                <p className="text-3xl font-extrabold mt-2 text-red-400">
                   {results.mistakes}
                 </p>
-                <p className="text-[10px] text-zinc-400 dark:text-slate-500 mt-1">-{results.deductionPerMistake} per mistake</p>
+                <p className="text-[10px] text-slate-500 mt-1">-{results.deductionPerMistake} per mistake</p>
               </div>
 
-              <div className="p-5 rounded-xl bg-white dark:bg-white/5 border border-zinc-100 dark:border-white/5 shadow-sm transition-colors duration-300">
-                <p className="text-zinc-500 dark:text-slate-400 text-xs font-medium uppercase tracking-wider">Strokes</p>
-                <p className="text-3xl font-extrabold mt-2 text-zinc-900 dark:text-white">
+              <div className="p-5 rounded-xl bg-white/5 border border-white/5">
+                <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Strokes</p>
+                <p className="text-3xl font-extrabold mt-2 text-white">
                   {results.strokes}
                 </p>
               </div>
 
-              <div className="p-5 rounded-xl bg-white dark:bg-white/5 border border-zinc-100 dark:border-white/5 shadow-sm transition-colors duration-300">
-                <p className="text-zinc-500 dark:text-slate-400 text-xs font-medium uppercase tracking-wider">Accuracy</p>
-                <p className="text-3xl font-extrabold mt-2 text-blue-600 dark:text-blue-400">
+              <div className="p-5 rounded-xl bg-white/5 border border-white/5">
+                <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Accuracy</p>
+                <p className="text-3xl font-extrabold mt-2 text-blue-400">
                   {results.accuracy}%
                 </p>
               </div>
@@ -470,19 +482,18 @@ export default function TypingTest() {
 
             <div className="mb-8">
               {overallPassed ? (
-                <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-6 shadow-lg shadow-emerald-500/5 transition-colors duration-300">
-                  <p className="text-emerald-600 dark:text-emerald-400 font-semibold text-lg">🎉 Congratulations! You cleared the exam of Lakshmi Tech!</p>
+                <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-6 shadow-lg shadow-emerald-500/10">
+                  <p className="text-emerald-400 font-semibold text-lg">🎉 Congratulations! You cleared the exam of Lakshmi Tech!</p>
                 </div>
               ) : (
-                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 shadow-lg shadow-red-500/5 transition-colors duration-300">
-                  <p className="text-red-600 dark:text-red-400 font-semibold text-lg">Keep practicing! You need a minimum of 50 marks to pass.</p>
+                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 shadow-lg shadow-red-500/10">
+                  <p className="text-red-400 font-semibold text-lg">Keep practicing! You need a minimum of 50 marks to pass.</p>
                 </div>
               )}
             </div>
 
-            {/* 👇 BUTTON HUB */}
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <Link href="/dashboard" className="bg-zinc-100 dark:bg-white/10 hover:bg-zinc-200 dark:hover:bg-white/20 border border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white px-8 py-3 rounded-xl font-bold transition-all duration-300 shadow-sm">
+              <Link href="/dashboard" className="bg-white/10 hover:bg-white/20 border border-white/10 text-white px-8 py-3 rounded-xl font-bold transition-all duration-300">
                 Back to Dashboard
               </Link>
               <button
@@ -492,7 +503,7 @@ export default function TypingTest() {
                   setTimeLeft(600);
                   setTestStarted(false);
                 }}
-                className="bg-zinc-50 dark:bg-white/5 hover:bg-zinc-100 dark:hover:bg-white/10 text-zinc-700 dark:text-white border border-zinc-200 dark:border-white/10 px-8 py-3 rounded-xl font-bold transition-all duration-300 shadow-sm"
+                className="bg-white/5 hover:bg-white/10 text-white border border-white/10 px-8 py-3 rounded-xl font-bold transition-all duration-300"
               >
                 Try Again
               </button>
@@ -519,40 +530,39 @@ export default function TypingTest() {
   const activeWordValue = userInput.endsWith(' ') ? '' : typedWordsArray[typedWordsArray.length - 1] || '';
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-[#0b0f19] text-zinc-900 dark:text-white relative overflow-hidden transition-colors duration-300">
-      <div className="absolute top-0 -left-1/4 w-96 h-96 bg-indigo-600 rounded-full filter blur-[120px] opacity-10 dark:opacity-20 pointer-events-none" />
-      <div className="absolute bottom-0 -right-1/4 w-96 h-96 bg-purple-600 rounded-full filter blur-[120px] opacity-10 dark:opacity-10 pointer-events-none" />
+    <div className="min-h-screen bg-[#0b0f19] text-white relative overflow-hidden">
+      <div className="absolute top-0 -left-1/4 w-96 h-96 bg-indigo-600 rounded-full filter blur-[120px] opacity-20 pointer-events-none" />
+      <div className="absolute bottom-0 -right-1/4 w-96 h-96 bg-purple-600 rounded-full filter blur-[120px] opacity-10 pointer-events-none" />
 
       <Navbar />
 
       <div className="max-w-6xl mx-auto px-4 py-8 relative z-10">
-        
-        <div className="bg-zinc-50 dark:bg-white/5 backdrop-blur-xl border border-zinc-200 dark:border-white/10 rounded-2xl p-6 mb-6 shadow-2xl transition-colors duration-300">
+
+        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 mb-6 shadow-2xl">
           <div className="flex flex-col sm:flex-row items-center justify-between mb-6 gap-4">
             <div>
-              <span className="text-xs font-semibold tracking-wider text-indigo-600 dark:text-indigo-400 uppercase mb-1 block">Timed Drill</span>
-              <h1 className="text-3xl font-extrabold text-zinc-900 dark:text-white transition-colors">
+              <span className="text-xs font-semibold tracking-wider text-indigo-400 uppercase mb-1 block">Timed Drill</span>
+              <h1 className="text-3xl font-extrabold text-white">
                 {language.charAt(0).toUpperCase() + language.slice(1)} - {level.charAt(0).toUpperCase() + level.slice(1)}
               </h1>
             </div>
-            
-            <div className="flex items-center gap-2 bg-white dark:bg-white/5 p-2 rounded-xl border border-zinc-200 dark:border-white/10 transition-colors duration-300">
-              <span className="text-xs text-zinc-500 dark:text-slate-300 font-medium">Backspace:</span>
+
+            <div className="flex items-center gap-2 bg-white/5 p-2 rounded-xl border border-white/10">
+              <span className="text-xs text-slate-300 font-medium">Backspace:</span>
               <button
                 onClick={() => setBackspaceEnabled(!backspaceEnabled)}
-                disabled={testStarted && !testComplete} 
-                className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all duration-300 ${
-                  backspaceEnabled 
-                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/30' 
-                    : 'bg-zinc-200 dark:bg-white/10 text-zinc-500 dark:text-slate-400 hover:bg-zinc-300 dark:hover:bg-white/20'
-                }`}
+                disabled={testStarted && !testComplete}
+                className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all duration-300 ${backspaceEnabled
+                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/30'
+                    : 'bg-white/10 text-slate-400 hover:bg-white/20'
+                  }`}
               >
                 {backspaceEnabled ? 'ENABLED' : 'DISABLED'}
               </button>
             </div>
 
             <div className="flex items-center gap-4">
-              <div className={`text-4xl font-mono font-black tracking-wider transition-colors ${timeLeft < 60 ? 'text-red-600 dark:text-red-500 animate-pulse' : 'text-indigo-600 dark:text-indigo-400'}`}>
+              <div className={`text-4xl font-mono font-black tracking-wider ${timeLeft < 60 ? 'text-red-500 animate-pulse' : 'text-indigo-400'}`}>
                 {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
               </div>
 
@@ -568,44 +578,44 @@ export default function TypingTest() {
           </div>
 
           <div className="grid grid-cols-3 gap-4">
-            <div className="bg-white dark:bg-white/5 p-4 rounded-xl border border-zinc-100 dark:border-white/5 group hover:bg-zinc-50 dark:hover:bg-white/10 transition-all duration-300 shadow-sm">
-              <p className="text-zinc-500 dark:text-slate-400 text-xs font-medium uppercase tracking-wider">WPM</p>
-              <p className="text-3xl font-extrabold text-indigo-600 dark:text-indigo-400 mt-1 group-hover:text-indigo-700 dark:group-hover:text-indigo-300 transition-colors">{wpm}</p>
+            <div className="bg-white/5 p-4 rounded-xl border border-white/5 group hover:bg-white/10 transition-all duration-300">
+              <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">WPM</p>
+              <p className="text-3xl font-extrabold text-indigo-400 mt-1 group-hover:text-indigo-300 transition-colors">{wpm}</p>
             </div>
-            <div className="bg-white dark:bg-white/5 p-4 rounded-xl border border-zinc-100 dark:border-white/5 group hover:bg-zinc-50 dark:hover:bg-white/10 transition-all duration-300 shadow-sm">
-              <p className="text-zinc-500 dark:text-slate-400 text-xs font-medium uppercase tracking-wider">Accuracy</p>
-              <p className="text-3xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-1 group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors">{accuracy}%</p>
+            <div className="bg-white/5 p-4 rounded-xl border border-white/5 group hover:bg-white/10 transition-all duration-300">
+              <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Accuracy</p>
+              <p className="text-3xl font-extrabold text-emerald-400 mt-1 group-hover:text-emerald-300 transition-colors">{accuracy}%</p>
             </div>
-            <div className="bg-white dark:bg-white/5 p-4 rounded-xl border border-zinc-100 dark:border-white/5 group hover:bg-zinc-50 dark:hover:bg-white/10 transition-all duration-300 shadow-sm">
-              <p className="text-zinc-500 dark:text-slate-400 text-xs font-medium uppercase tracking-wider">Strokes</p>
-              <p className="text-3xl font-extrabold text-purple-600 dark:text-purple-400 mt-1 group-hover:text-purple-700 dark:group-hover:text-purple-300 transition-colors">{strokes}</p>
+            <div className="bg-white/5 p-4 rounded-xl border border-white/5 group hover:bg-white/10 transition-all duration-300">
+              <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Strokes</p>
+              <p className="text-3xl font-extrabold text-purple-400 mt-1 group-hover:text-purple-300 transition-colors">{strokes}</p>
             </div>
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          
-          <div className="bg-zinc-50 dark:bg-white/5 backdrop-blur-md border border-zinc-200 dark:border-white/10 rounded-2xl p-6 shadow-2xl transition-colors duration-300">
-            <h2 className="text-xl font-bold text-zinc-900 dark:text-white mb-4">Original Passage</h2>
-            <div 
+
+          <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 shadow-2xl">
+            <h2 className="text-xl font-bold text-white mb-4">Original Passage</h2>
+            <div
               ref={passageContainerRef}
-              className="bg-white dark:bg-black/30 border border-zinc-200 dark:border-white/5 p-6 rounded-xl h-72 overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-white/10 transition-colors duration-300"
+              className="bg-black/30 border border-white/5 p-6 rounded-xl h-72 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10"
             >
-              <div className="text-zinc-700 dark:text-slate-300 text-lg leading-relaxed font-mono flex flex-wrap gap-x-2 gap-y-1">
+              <div className="text-slate-300 text-lg leading-relaxed font-mono flex flex-wrap gap-x-2 gap-y-1">
                 {targetWordsArray.map((word, i) => {
-                  let wordClass = "text-zinc-400 dark:text-slate-400"; 
+                  let wordClass = "text-slate-400";
                   const isCurrent = i === (userInput.endsWith(' ') ? typedWordsArray.length : typedWordsArray.length - 1);
 
                   if (i < (userInput.endsWith(' ') ? typedWordsArray.length : typedWordsArray.length - 1)) {
-                    wordClass = typedWordsArray[i] === word 
-                      ? "text-emerald-600 dark:text-emerald-400 font-bold" 
-                      : "text-red-600 dark:text-red-400 font-bold underline decoration-wavy";
+                    wordClass = typedWordsArray[i] === word
+                      ? "text-emerald-400 font-bold"
+                      : "text-red-400 font-bold underline decoration-wavy";
                   } else if (isCurrent) {
                     const isMismatch = activeWordValue !== word.slice(0, activeWordValue.length);
-                    
-                    wordClass = isMismatch 
-                      ? "bg-red-500/20 text-red-600 dark:text-red-400 font-bold animate-pulse ring-2 ring-red-500/50" 
-                      : "bg-indigo-500/30 text-zinc-900 dark:text-white font-bold animate-pulse ring-2 ring-indigo-500/50";
+
+                    wordClass = isMismatch
+                      ? "bg-red-500/20 text-red-400 font-bold animate-pulse ring-2 ring-red-500/50"
+                      : "bg-indigo-500/30 text-white font-bold animate-pulse ring-2 ring-indigo-500/50";
                   }
 
                   return (
@@ -622,20 +632,20 @@ export default function TypingTest() {
             </div>
           </div>
 
-          <div className="bg-zinc-50 dark:bg-white/5 backdrop-blur-md border border-zinc-200 dark:border-white/10 rounded-2xl p-6 shadow-2xl transition-colors duration-300">
-            <h2 className="text-xl font-bold text-zinc-900 dark:text-white mb-4">Your Typing</h2>
+          <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 shadow-2xl">
+            <h2 className="text-xl font-bold text-white mb-4">Your Typing</h2>
             <textarea
               value={userInput}
               onChange={(e) => setUserInput(e.target.value)}
-              onKeyDown={handleKeyDown} 
+              onKeyDown={handleKeyDown}
               disabled={!testStarted || testComplete}
               autoFocus={testStarted}
               onPaste={(e) => e.preventDefault()}
               onCopy={(e) => e.preventDefault()}
               onCut={(e) => e.preventDefault()}
               onDrop={(e) => e.preventDefault()}
-              onContextMenu={(e) => e.preventDefault()} 
-              className="w-full h-72 p-4 bg-white dark:bg-black/30 border border-zinc-200 dark:border-white/5 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none resize-none text-zinc-900 dark:text-white font-mono text-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-300"
+              onContextMenu={(e) => e.preventDefault()}
+              className="w-full h-72 p-4 bg-black/30 border border-white/5 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none resize-none text-white font-mono text-lg disabled:opacity-50 disabled:cursor-not-allowed"
               placeholder={testStarted ? 'Start typing here...' : 'Click "Start Test" to begin'}
             />
           </div>
@@ -645,10 +655,9 @@ export default function TypingTest() {
           <div className="mt-6 flex justify-center">
             <button
               onClick={() => submitTest(userInput, timeLeft)}
-              disabled={isSubmitting} 
-              className={`text-white px-8 py-3 rounded-xl font-bold transition-all duration-300 shadow-lg ${
-                isSubmitting ? 'bg-zinc-400 dark:bg-slate-600 cursor-not-allowed' : 'bg-red-600 hover:bg-red-500 hover:shadow-red-500/30'
-              }`}
+              disabled={isSubmitting}
+              className={`text-white px-8 py-3 rounded-xl font-bold transition-all duration-300 shadow-lg ${isSubmitting ? 'bg-slate-600 cursor-not-allowed' : 'bg-red-600 hover:bg-red-500 hover:shadow-red-500/30'
+                }`}
             >
               {isSubmitting ? 'Saving Metrics...' : 'Submit Test Early'}
             </button>

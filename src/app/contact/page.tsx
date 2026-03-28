@@ -26,10 +26,10 @@ export default function ContactUs() {
     const adminPhone = '918973120153';
 
     const textMessage = `Hello Lakshmi Tech Institute,\n\n` +
-                        `I have a query.\n` +
-                        `*Name:* ${formData.name}\n` +
-                        `*Mobile:* ${formData.mobile}\n` +
-                        `*Message:* ${formData.message}`;
+      `I have a query.\n` +
+      `*Name:* ${formData.name}\n` +
+      `*Mobile:* ${formData.mobile}\n` +
+      `*Message:* ${formData.message}`;
 
     const encodedMessage = encodeURIComponent(textMessage);
     const whatsappUrl = `https://wa.me/${adminPhone}?text=${encodedMessage}`;
@@ -37,7 +37,7 @@ export default function ContactUs() {
     window.open(whatsappUrl, '_blank');
 
     setLoading(false);
-    setFormData({ name: '', mobile: '', message: '' }); 
+    setFormData({ name: '', mobile: '', message: '' });
   };
 
   return (
@@ -67,7 +67,7 @@ export default function ContactUs() {
         )}
 
         <div className="max-w-2xl mx-auto px-4 py-12">
-          
+
           <div className="bg-zinc-50 dark:bg-white/5 backdrop-blur-xl border border-zinc-200 dark:border-white/10 rounded-2xl p-8 shadow-2xl mb-12 transition-colors duration-300">
             <span className="text-xs font-semibold tracking-wider text-indigo-600 dark:text-indigo-400 uppercase mb-1 block text-center">
               Reach Out
@@ -138,8 +138,8 @@ export default function ContactUs() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <a 
-              href="mailto:lakshmitechinstitute97@gmail.com" 
+            <a
+              href="mailto:lakshmitechinstitute97@gmail.com"
               className="bg-zinc-50 dark:bg-white/5 backdrop-blur-md border border-zinc-200 dark:border-white/10 p-6 rounded-2xl shadow-lg text-center hover:bg-white dark:hover:bg-white/10 hover:-translate-y-1 transition-all duration-300 flex flex-col items-center group"
             >
               <div className="text-3xl mb-4 group-hover:scale-110 transition-transform">📧</div>
@@ -147,9 +147,9 @@ export default function ContactUs() {
               <p className="text-indigo-600 dark:text-indigo-300 break-all text-xs font-mono">lakshmitechinstitute97@gmail.com</p>
             </a>
 
-            <a 
-              href="https://maps.google.com" 
-              target="_blank" 
+            <a
+              href="https://maps.app.goo.gl/KpzscVBqUEwwjUiEA "
+              target="_blank"
               rel="noopener noreferrer"
               className="bg-zinc-50 dark:bg-white/5 backdrop-blur-md border border-zinc-200 dark:border-white/10 p-6 rounded-2xl shadow-lg text-center hover:bg-white dark:hover:bg-white/10 hover:-translate-y-1 transition-all duration-300 flex flex-col items-center group"
             >

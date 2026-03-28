@@ -8,7 +8,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     <ThemeProvider
       attribute="class"
       defaultTheme="dark"
-      enableSystem={true}
+      enableSystem={false}
       storageKey="lti-theme-pref"
       disableTransitionOnChange
     >
