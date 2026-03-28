@@ -117,7 +117,7 @@ export default function Navbar({ hideContact = false }: { hideContact?: boolean 
               <div className="relative">
                 <button
                   onClick={() => setOpenDropdown(openDropdown === 'admin' ? null : 'admin')}
-                  className="bg-yellow-500 hover:bg-yellow-400 text-gray-900 font-bold px-4 h-10 flex items-center justify-center rounded-lg transition-colors whitespace-nowrap shadow-lg hover:shadow-yellow-500/20 gap-2"
+                  className="bg-[#4f39f6] hover:opacity-90 text-white font-bold px-4 h-10 flex items-center justify-center rounded-lg transition-all whitespace-nowrap shadow-lg hover:shadow-[#4f39f6]/30 gap-2"
                 >
                   Admin Panel
                   <svg
