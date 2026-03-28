@@ -266,6 +266,12 @@ export default function TypingTest() {
     // ✅ Automatically use loaded profileName, or fallback to user email if name is empty
     const studentName = profileName || user?.email || "N/A";
 
+    // --- FIX STARTS HERE ---
+    const now = new Date();
+    const formattedDate = now.toLocaleDateString();
+    const formattedTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+    // --- FIX ENDS HERE ---
+
     const doc = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
@@ -297,7 +303,9 @@ export default function TypingTest() {
     doc.text(`Student ID: ${user?.email || 'N/A'}`, 20, 91);
     doc.text(`Language: ${language.toUpperCase()}`, 20, 99);
     doc.text(`Exam Level: ${level.toUpperCase()}`, 20, 107);
-    doc.text(`Date generated: ${new Date().toLocaleDateString()}`, pageWidth - 20, 83, { align: 'right' });
+    
+    // This line now includes both Date and Time
+    doc.text(`Date & Time: ${formattedDate} | ${formattedTime}`, pageWidth - 20, 83, { align: 'right' });
 
     // 📊 3. Table Metrics
     doc.setFillColor(245, 245, 245);
