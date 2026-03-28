@@ -2,12 +2,15 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 
-export default function Navbar() {
+import { ThemeToggle } from './ThemeToggle';
+
+export default function Navbar({ hideContact = false }: { hideContact?: boolean }) {
   const { user, profile, isAdmin, logOut } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -35,20 +38,20 @@ export default function Navbar() {
     <nav className="bg-[#0b0f19] text-white border-b border-white/5 relative z-50">
       <div className="max-w-6xl mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
-          
-          <Link 
-            href="/dashboard" 
+
+          <Link
+            href="/dashboard"
             className="flex items-center gap-3 text-xl font-bold tracking-tight text-white hover:text-indigo-300 transition-colors uppercase">
-            <img 
-              src="/my-logo.png" 
-              alt="LTI Logo" 
-              className="w-8 h-8 object-contain" 
+            <img
+              src="/my-logo.png"
+              alt="LTI Logo"
+              className="w-8 h-8 object-contain"
             />
             <span>LAKSHMI TECHNICAL INSTITUTE</span>
           </Link>
 
           <div className="flex items-center gap-6" ref={dropdownRef}>
-            
+
             <Link href="/dashboard" className="text-white hover:bg-white/10 px-4 py-2 rounded-lg transition-colors">
               Dashboard
             </Link>
@@ -101,9 +104,13 @@ export default function Navbar() {
               Leaderboard
             </Link>
 
-            <Link href="/contact" className="text-white hover:bg-white/10 px-4 py-2 rounded-lg transition-colors">
-              Contact
-            </Link>
+            {!hideContact && (
+              <Link href="/contact" className="text-white hover:bg-white/10 px-4 py-2 rounded-lg transition-colors">
+                Contact
+              </Link>
+            )}
+
+            <ThemeToggle />
 
             {/* 🛡️ ADMIN PANEL DROPDOWN */}
             {isAdmin && (
@@ -160,7 +167,7 @@ export default function Navbar() {
                     <p className="font-semibold text-sm text-white truncate">{profile?.full_name || 'Typist'}</p>
                     <p className="text-xs text-slate-400 truncate">{user?.email}</p>
                   </div>
-                  
+
                   <Link href="/profile" className="block px-4 py-2 text-sm text-white hover:bg-white/5 transition-colors">
                     My Profile
                   </Link>

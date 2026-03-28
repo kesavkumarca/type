@@ -267,7 +267,7 @@ function AdminPanelContent() {
       <div className="absolute bottom-0 -right-1/4 w-96 h-96 bg-emerald-600 rounded-full filter blur-[120px] opacity-10 pointer-events-none" />
 
       <div className="relative z-10">
-        <Navbar />
+        <Navbar hideContact={true} />
 
         <div className="max-w-6xl mx-auto px-4 py-12">
 
