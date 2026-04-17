@@ -39,6 +39,7 @@ interface AttendanceLog {
 interface InstituteSettings {
   institute_name: string; primary_admin_phone: string; secondary_admin_phone: string;
   active_admin_phone: string; courses: string[]; absence_template: string; fee_template: string;
+  holidays?: string[]; course_fees?: Record<string, number>;
 }
 
 // ─────────────────────────────────────────────
@@ -59,6 +60,7 @@ const COURSES = [
   'Shorthand',
 ];
 
+// Per-slot capacity
 const COURSE_CAPACITY: Record<string, number | undefined> = {
   'Typewriting - English Junior': 13,
   'Typewriting - English Senior': 13,
@@ -69,10 +71,34 @@ const COURSE_CAPACITY: Record<string, number | undefined> = {
   'Shorthand': undefined,
 };
 
+// Total (all-slot) capacity
+const COURSE_TOTAL_CAPACITY: Record<string, number | undefined> = {
+  'Typewriting - English Junior': 117,
+  'Typewriting - English Senior': 117,
+  'Typewriting - Tamil Junior': 45,
+  'Typewriting - Tamil Senior': 45,
+  'COA': 63,
+  'Tally': 63,
+  'Shorthand': undefined,
+};
+
+// Default monthly fees per course (₹)
+const DEFAULT_COURSE_FEES: Record<string, number> = {
+  'Typewriting - English Junior': 400,
+  'Typewriting - English Senior': 400,
+  'Typewriting - Tamil Junior': 400,
+  'Typewriting - Tamil Senior': 400,
+  'COA': 500,
+  'Tally': 500,
+  'Shorthand': 400,
+};
+
 const COURSE_GROUPS = [
   { group: 'Typewriting', items: ['Typewriting - English Junior','Typewriting - English Senior','Typewriting - Tamil Junior','Typewriting - Tamil Senior'] },
   { group: 'Other', items: ['COA','Tally','Shorthand'] },
 ];
+
+const DAYS_OF_WEEK = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
 const DEFAULT_SETTINGS: InstituteSettings = {
   institute_name: 'LAKSHMI TECHNICAL INSTITUTE',
@@ -82,6 +108,8 @@ const DEFAULT_SETTINGS: InstituteSettings = {
   courses: COURSES,
   absence_template: 'Hi {name}, you were absent on {date} for your {course} class at {institute}. Please attend regularly.',
   fee_template: 'Hi {name}, your monthly fee for {course} at {institute} is due. Kindly pay at the earliest. Thank you!',
+  holidays: [],
+  course_fees: DEFAULT_COURSE_FEES,
 };
 
 function formatDate(dateStr: string): string {
@@ -104,7 +132,7 @@ function ensureSheetJS(): Promise<void> {
 // ─────────────────────────────────────────────
 function InstituteModule() {
   const [instituteTab, setInstituteTab] = useState<
-    'dashboard' | 'attendance' | 'students' | 'reports' | 'settings'
+    'dashboard' | 'attendance' | 'students' | 'reports'
   >('dashboard');
 
   const [instStudents, setInstStudents] = useState<InstituteStudent[]>([]);
@@ -138,9 +166,8 @@ function InstituteModule() {
   const [reportCourse, setReportCourse] = useState('');
   const [reportSlot, setReportSlot] = useState('');
 
-  const [settingsForm, setSettingsForm] = useState<InstituteSettings>(DEFAULT_SETTINGS);
-  const [savingSettings, setSavingSettings] = useState(false);
-  const [settingsSaved, setSettingsSaved] = useState(false);
+  // Course fees state (editable in settings, stored in DB)
+  const [courseFees, setCourseFees] = useState<Record<string, number>>(DEFAULT_COURSE_FEES);
 
   useEffect(() => { loadAllInstituteData(); }, []);
 
@@ -158,12 +185,36 @@ function InstituteModule() {
       setAttendanceLogs((attRes.data as AttendanceLog[]) || []);
       if (settRes.data && !settRes.error) {
         const s = settRes.data as InstituteSettings;
-        setSettings(s); setSettingsForm(s);
+        setSettings(s);
+        // Load holidays from DB settings
+        if (s.holidays && Array.isArray(s.holidays)) {
+          setHolidays(s.holidays);
+        }
+        // Load course fees from DB settings
+        if (s.course_fees) {
+          setCourseFees({ ...DEFAULT_COURSE_FEES, ...s.course_fees });
+        }
       }
     } catch (err: any) {
       setInstError(err.message || 'Failed to load institute data');
     } finally { setLoadingInst(false); }
   }
+
+  // ── Flexible student logic: only show in slot if NOT already saved today ──
+  // A flexible student appears in a slot only if they have NO log for attDate yet.
+  const flexibleStudentsAlreadySaved = new Set(
+    attendanceLogs
+      .filter(l => l.attendance_date === attDate && instStudents.find(s => s.id === l.student_id && s.batch_slot === 'Flexible'))
+      .map(l => l.student_id)
+  );
+
+  const studentsForSlot = instStudents.filter(s => {
+    if (s.status !== 'active') return false;
+    if (s.batch_slot === attSlot) return true;
+    // Flexible: show only if not yet saved for this date
+    if (s.batch_slot === 'Flexible' && !flexibleStudentsAlreadySaved.has(s.id)) return true;
+    return false;
+  });
 
   useEffect(() => {
     const existing: Record<string, 'P' | 'A' | 'L'> = {};
@@ -173,16 +224,34 @@ function InstituteModule() {
     setAttMap(existing); setAttSaved(false);
   }, [attDate, attSlot, attendanceLogs]);
 
-  const studentsForSlot = instStudents.filter(s =>
-    s.status === 'active' && (s.batch_slot === attSlot || s.batch_slot === 'Flexible')
-  );
-
   async function saveAttendance() {
     setSavingAtt(true);
     try {
-      await supabase.from('attendance_logs').delete().eq('attendance_date', attDate).eq('batch_slot', attSlot);
+      // For flexible students: delete only their record for this date (any slot) before inserting
+      const flexIds = studentsForSlot.filter(s => s.batch_slot === 'Flexible').map(s => s.id);
+      const regularIds = studentsForSlot.filter(s => s.batch_slot !== 'Flexible').map(s => s.id);
+
+      // Delete regular students' logs for this date+slot
+      if (regularIds.length > 0) {
+        await supabase.from('attendance_logs')
+          .delete()
+          .eq('attendance_date', attDate)
+          .eq('batch_slot', attSlot)
+          .in('student_id', regularIds);
+      }
+      // Delete flexible students' logs for this date (any slot)
+      if (flexIds.length > 0) {
+        await supabase.from('attendance_logs')
+          .delete()
+          .eq('attendance_date', attDate)
+          .in('student_id', flexIds);
+      }
+
       const rows = studentsForSlot.map(s => ({
-        student_id: s.id, status: attMap[s.id] || 'A', attendance_date: attDate, batch_slot: attSlot,
+        student_id: s.id,
+        status: attMap[s.id] || 'A',
+        attendance_date: attDate,
+        batch_slot: s.batch_slot === 'Flexible' ? attSlot : attSlot,
       }));
       if (rows.length > 0) {
         const { error } = await supabase.from('attendance_logs').insert(rows);
@@ -193,6 +262,25 @@ function InstituteModule() {
       setAttSaved(true);
     } catch (err: any) { alert('Error saving: ' + err.message); }
     finally { setSavingAtt(false); }
+  }
+
+  async function saveHolidays(newHolidays: string[]) {
+    setHolidays(newHolidays);
+    // Persist to DB
+    try {
+      await supabase.from('institute_management_settings')
+        .update({ holidays: newHolidays })
+        .eq('id', 1);
+    } catch (err: any) { console.error('Failed to save holidays:', err.message); }
+  }
+
+  async function saveCourseFees(fees: Record<string, number>) {
+    setCourseFees(fees);
+    try {
+      await supabase.from('institute_management_settings')
+        .update({ course_fees: fees })
+        .eq('id', 1);
+    } catch (err: any) { console.error('Failed to save fees:', err.message); }
   }
 
   function getConsecutiveAbsences(studentId: string): number {
@@ -303,7 +391,7 @@ function InstituteModule() {
         <td style="padding:8px 12px;text-align:center;font-weight:700;">${r.pct}%</td>
       </tr>`).join('');
     const win = window.open('', '_blank');
-    if (!win) return;
+    if (!win) { alert('Pop-up blocked. Allow pop-ups for this site.'); return; }
     win.document.write(`
       <html><head><title>Attendance — ${reportMonth}</title>
       <style>
@@ -312,7 +400,8 @@ function InstituteModule() {
         table{width:100%;border-collapse:collapse;}
         th{background:#1e293b;color:#fff;padding:10px 12px;text-align:left;font-size:12px;}
         td{font-size:12px;}
-        @media print{button{display:none;}}
+        .print-btn{margin-top:12px;padding:8px 20px;background:#1e293b;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;}
+        @media print{.print-btn{display:none;}}
       </style></head>
       <body>
         <h2>${settings.institute_name}</h2>
@@ -321,9 +410,11 @@ function InstituteModule() {
           <thead><tr><th>Name</th><th>Course</th><th>Slot</th><th>Present</th><th>Absent</th><th>Late</th><th>Working Days</th><th>Attendance %</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
-        <p style="margin-top:16px;font-size:11px;color:#94a3b8;">⚠️ Orange rows = below 75% attendance.</p>
-        <button onclick="window.print()" style="margin-top:12px;padding:8px 20px;background:#1e293b;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;">🖨️ Print / Save PDF</button>
+        <p style="margin-top:16px;font-size:11px;color:#94a3b8;">⚠️ Orange rows = below 75% attendance. Holidays excluded.</p>
+        <button class="print-btn" onclick="window.print()">🖨️ Print / Save PDF</button>
+        <script>window.onload = function(){ window.print(); }<\/script>
       </body></html>`);
+    win.document.close();
   }
 
   async function exportExcel() {
@@ -362,17 +453,6 @@ function InstituteModule() {
     XLSX.writeFile(wb, `LTI_Attendance_${reportMonth}.xlsx`);
   }
 
-  async function saveSettings() {
-    setSavingSettings(true);
-    try {
-      const { error } = await supabase.from('institute_management_settings').update(settingsForm).eq('id', 1);
-      if (error) throw error;
-      setSettings(settingsForm); setSettingsSaved(true);
-      setTimeout(() => setSettingsSaved(false), 3000);
-    } catch (err: any) { alert('Error saving settings: ' + err.message); }
-    finally { setSavingSettings(false); }
-  }
-
   function exportBackup() {
     const payload = { instStudents, attendanceLogs, holidays, settings, exportedAt: new Date().toISOString() };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
@@ -391,48 +471,56 @@ function InstituteModule() {
 
   const topStudents = activeStudents.map(s => {
     const [year, month] = thisMonth.split('-').map(Number);
-    const daysInMonth = new Date(year, month, 0).getDate();
+    const workingDays = getWorkingDays(year, month);
+    const total = workingDays.length || 1;
     const logs = attendanceLogs.filter(l => {
       const [ly, lm] = l.attendance_date.split('-').map(Number);
       return l.student_id === s.id && ly === year && lm === month;
     });
-    const pct = daysInMonth > 0 ? Math.round(((logs.filter(l => l.status === 'P' || l.status === 'L').length) / daysInMonth) * 100) : 0;
+    const pct = Math.round(((logs.filter(l => l.status === 'P' || l.status === 'L').length) / total) * 100);
     return { ...s, pct };
   }).sort((a, b) => b.pct - a.pct).slice(0, 3);
 
   const lowAttendanceStudents = activeStudents.map(s => {
     const [year, month] = thisMonth.split('-').map(Number);
-    const daysInMonth = new Date(year, month, 0).getDate();
+    const workingDays = getWorkingDays(year, month);
+    const total = workingDays.length || 1;
     const logs = attendanceLogs.filter(l => {
       const [ly, lm] = l.attendance_date.split('-').map(Number);
       return l.student_id === s.id && ly === year && lm === month;
     });
-    const pct = daysInMonth > 0 ? Math.round(((logs.filter(l => l.status === 'P' || l.status === 'L').length) / daysInMonth) * 100) : 0;
+    const pct = Math.round(((logs.filter(l => l.status === 'P' || l.status === 'L').length) / total) * 100);
     return { ...s, pct };
   }).filter(s => s.pct < 75 && s.pct > 0);
 
-  const slotUtilData = BATCH_SLOTS.filter(s => s !== 'Flexible').map(slot => {
-    const count = activeStudents.filter(s => s.batch_slot === slot || s.batch_slot === 'Flexible').length;
-    return { slot: slot.replace(':00 ', ''), count };
+  // Slot fill rate: per slot per course (active non-flexible students only)
+  const slotFillData = BATCH_SLOTS.filter(s => s !== 'Flexible').flatMap(slot => {
+    return COURSES.filter(c => COURSE_CAPACITY[c] !== undefined).map(course => {
+      const enrolled = activeStudents.filter(s => s.batch_slot === slot && s.course === course).length;
+      const cap = COURSE_CAPACITY[course]!;
+      const pct = Math.round((enrolled / cap) * 100);
+      return { slot: slot.replace(':00 ', ''), course: course.replace('Typewriting - ', 'TW '), enrolled, cap, pct };
+    }).filter(r => r.enrolled > 0);
   });
 
   const courseDistribution = COURSES.map(c => ({
     course: c.replace('Typewriting - ', 'TW '),
     count: activeStudents.filter(s => s.course === c).length,
-    capacity: COURSE_CAPACITY[c] ?? null,
+    capacity: COURSE_TOTAL_CAPACITY[c] ?? null,
   }));
 
   const courseAvgAttendance = COURSES.map(c => {
     const courseStudents = activeStudents.filter(s => s.course === c);
     if (courseStudents.length === 0) return null;
     const [year, month] = thisMonth.split('-').map(Number);
-    const daysInMonth = new Date(year, month, 0).getDate();
+    const workingDays = getWorkingDays(year, month);
+    const total = workingDays.length || 1;
     const avg = courseStudents.reduce((acc, s) => {
       const logs = attendanceLogs.filter(l => {
         const [ly, lm] = l.attendance_date.split('-').map(Number);
         return l.student_id === s.id && ly === year && lm === month;
       });
-      const pct = daysInMonth > 0 ? Math.round(((logs.filter(l => l.status === 'P' || l.status === 'L').length) / daysInMonth) * 100) : 0;
+      const pct = Math.round(((logs.filter(l => l.status === 'P' || l.status === 'L').length) / total) * 100);
       return acc + pct;
     }, 0) / courseStudents.length;
     return { course: c.replace('Typewriting - ', 'TW '), avg: Math.round(avg) };
@@ -445,7 +533,8 @@ function InstituteModule() {
       const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       const label = d.toLocaleString('en-IN', { month: 'short', year: '2-digit' });
       const [year, month] = ym.split('-').map(Number);
-      const daysInMonth = new Date(year, month, 0).getDate();
+      const workingDays = getWorkingDays(year, month);
+      const total = workingDays.length || 1;
       const studentsWithData = activeStudents.filter(s =>
         attendanceLogs.some(l => {
           const [ly, lm] = l.attendance_date.split('-').map(Number);
@@ -458,7 +547,7 @@ function InstituteModule() {
           const [ly, lm] = l.attendance_date.split('-').map(Number);
           return l.student_id === s.id && ly === year && lm === month;
         });
-        const pct = daysInMonth > 0 ? Math.round(((logs.filter(l => l.status === 'P' || l.status === 'L').length) / daysInMonth) * 100) : 0;
+        const pct = Math.round(((logs.filter(l => l.status === 'P' || l.status === 'L').length) / total) * 100);
         return acc + pct;
       }, 0) / studentsWithData.length;
       return { label, avg: Math.round(avg) };
@@ -477,20 +566,68 @@ function InstituteModule() {
     });
   })();
 
+  // ── NEW ANALYTICS ──
+
+  // 1. Revenue Estimator
+  const revenueData = COURSES.map(c => {
+    const enrolled = activeStudents.filter(s => s.course === c).length;
+    const fee = courseFees[c] || 0;
+    return { course: c.replace('Typewriting - ', 'TW '), enrolled, fee, revenue: enrolled * fee };
+  }).filter(r => r.enrolled > 0);
+  const totalProjectedRevenue = revenueData.reduce((sum, r) => sum + r.revenue, 0);
+
+  // 2. Retention Rate: students joined 3+ months ago still active
+  const threeMonthsAgo = new Date();
+  threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+  const eligibleStudents = instStudents.filter(s => new Date(s.join_date) <= threeMonthsAgo);
+  const retainedStudents = eligibleStudents.filter(s => s.status === 'active');
+  const retentionRate = eligibleStudents.length > 0
+    ? Math.round((retainedStudents.length / eligibleStudents.length) * 100)
+    : null;
+
+  // 3. Attendance Calendar Heatmap (current month)
+  const calendarData = (() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    const daysInMonth = new Date(year, month, 0).getDate();
+    return Array.from({ length: daysInMonth }, (_, i) => {
+      const day = i + 1;
+      const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+      const isHoliday = holidays.includes(dateStr);
+      const isFuture = new Date(dateStr) > now;
+      const dayLogs = attendanceLogs.filter(l => l.attendance_date === dateStr);
+      const present = dayLogs.filter(l => l.status === 'P' || l.status === 'L').length;
+      const total = dayLogs.length;
+      const pct = total > 0 ? Math.round((present / total) * 100) : null;
+      const dow = new Date(dateStr).getDay();
+      return { day, dateStr, isHoliday, isFuture, pct, dow };
+    });
+  })();
+
+  // 4. Best day of week
+  const dowData = DAYS_OF_WEEK.map((name, dow) => {
+    const daysWithData = calendarData.filter(d => d.dow === dow && d.pct !== null && !d.isHoliday);
+    const avg = daysWithData.length > 0
+      ? Math.round(daysWithData.reduce((sum, d) => sum + (d.pct ?? 0), 0) / daysWithData.length)
+      : 0;
+    return { name: name.slice(0, 3), avg, count: daysWithData.length };
+  }).filter(d => d.count > 0);
+
   if (loadingInst) return <div className="flex items-center justify-center py-24 text-slate-400 animate-pulse">Loading institute data...</div>;
   if (instError) return <div className="p-6 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400">⚠️ {instError} — <button onClick={loadAllInstituteData} className="underline">Retry</button></div>;
 
   return (
     <div className="space-y-6">
 
-      {/* Sub-tabs */}
-      <div className="flex flex-wrap gap-2 bg-white/5 p-1.5 rounded-xl border border-white/10">
+      {/* Sub-tabs — FIX 1: w-full + justify-start removes right gap */}
+      <div className="w-full flex flex-wrap gap-2 bg-white/5 p-1.5 rounded-xl border border-white/10">
         {([
           { id: 'dashboard', label: '🏠 Dashboard' },
           { id: 'attendance', label: '✅ Attendance' },
           { id: 'students', label: '👥 Students' },
           { id: 'reports', label: '📊 Reports' },
-          { id: 'settings', label: '⚙️ Settings' },
+          // Settings tab REMOVED (Fix 2)
         ] as const).map(tab => (
           <button key={tab.id} onClick={() => setInstituteTab(tab.id)}
             className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${instituteTab === tab.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}>
@@ -516,6 +653,162 @@ function InstituteModule() {
               </div>
             ))}
           </div>
+
+          {/* ── Revenue Estimator ── */}
+          <div className="bg-white/5 border border-white/10 rounded-xl p-5">
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+              <h3 className="text-white font-bold text-sm">💰 Projected Monthly Revenue</h3>
+              <div className="text-emerald-400 font-extrabold text-lg">₹{totalProjectedRevenue.toLocaleString('en-IN')}</div>
+            </div>
+            <div className="space-y-2">
+              {revenueData.map(r => (
+                <div key={r.course} className="flex items-center gap-3 text-sm">
+                  <span className="text-slate-400 w-36 shrink-0 text-xs">{r.course}</span>
+                  <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                    <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full"
+                      style={{ width: `${Math.min((r.revenue / totalProjectedRevenue) * 100, 100)}%` }} />
+                  </div>
+                  <span className="text-white font-bold text-xs w-20 text-right">
+                    {r.enrolled} × ₹{r.fee} = <span className="text-emerald-400">₹{r.revenue.toLocaleString('en-IN')}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+            <p className="text-slate-500 text-xs mt-3">Fee per course editable below ↓ in Fee Settings.</p>
+          </div>
+
+          {/* ── Fee Settings (inline, no separate settings tab) ── */}
+          <div className="bg-white/5 border border-white/10 rounded-xl p-5">
+            <h3 className="text-white font-bold text-sm mb-4">⚙️ Monthly Fee per Course (₹)</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {COURSES.map(c => (
+                <div key={c}>
+                  <label className="text-xs text-slate-400 mb-1 block">{c.replace('Typewriting - ', 'TW ')}</label>
+                  <input
+                    type="number"
+                    value={courseFees[c] || ''}
+                    onChange={e => setCourseFees(prev => ({ ...prev, [c]: Number(e.target.value) }))}
+                    onBlur={() => saveCourseFees(courseFees)}
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              ))}
+            </div>
+            <p className="text-slate-500 text-xs mt-2">Changes auto-save on blur.</p>
+          </div>
+
+          {/* ── Retention Rate ── */}
+          <div className="bg-white/5 border border-white/10 rounded-xl p-5">
+            <h3 className="text-white font-bold text-sm mb-3">🔁 Retention Rate</h3>
+            {retentionRate === null ? (
+              <p className="text-slate-500 text-sm">Not enough data (need students enrolled 3+ months ago).</p>
+            ) : (
+              <div className="flex items-center gap-6">
+                <div className={`text-5xl font-extrabold ${retentionRate >= 80 ? 'text-emerald-400' : retentionRate >= 60 ? 'text-amber-400' : 'text-red-400'}`}>
+                  {retentionRate}%
+                </div>
+                <div className="text-sm text-slate-400">
+                  <div>{retainedStudents.length} of {eligibleStudents.length} students still active</div>
+                  <div className="text-xs mt-1">among those enrolled 3+ months ago</div>
+                  <div className={`text-xs mt-1 font-semibold ${retentionRate >= 80 ? 'text-emerald-400' : retentionRate >= 60 ? 'text-amber-400' : 'text-red-400'}`}>
+                    {retentionRate >= 80 ? '✅ Excellent retention' : retentionRate >= 60 ? '⚠️ Moderate — investigate dropouts' : '🚨 Low — action needed'}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── Attendance Calendar Heatmap ── */}
+          <div className="bg-white/5 border border-white/10 rounded-xl p-5">
+            <h3 className="text-white font-bold text-sm mb-4">
+              📅 Attendance Heatmap — {new Date().toLocaleString('en-IN', { month: 'long', year: 'numeric' })}
+            </h3>
+            <div className="flex gap-3 text-xs text-slate-400 mb-3 flex-wrap">
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-emerald-500 inline-block" /> High (≥75%)</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-amber-500 inline-block" /> Mid (50–74%)</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-red-500 inline-block" /> Low (&lt;50%)</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-slate-600 inline-block" /> Holiday</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-white/10 inline-block" /> No data</span>
+            </div>
+            {/* Day-of-week header */}
+            <div className="grid grid-cols-7 gap-1 mb-1">
+              {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => (
+                <div key={d} className="text-center text-xs text-slate-500 font-semibold">{d}</div>
+              ))}
+            </div>
+            {/* Calendar grid */}
+            <div className="grid grid-cols-7 gap-1">
+              {/* Empty cells for first day offset */}
+              {Array.from({ length: calendarData[0]?.dow ?? 0 }, (_, i) => (
+                <div key={`empty-${i}`} />
+              ))}
+              {calendarData.map(d => {
+                let bg = 'bg-white/10';
+                let tooltip = 'No data';
+                if (d.isHoliday) { bg = 'bg-slate-600'; tooltip = 'Holiday'; }
+                else if (d.isFuture) { bg = 'bg-white/5'; tooltip = 'Future'; }
+                else if (d.pct !== null) {
+                  if (d.pct >= 75) bg = 'bg-emerald-500';
+                  else if (d.pct >= 50) bg = 'bg-amber-500';
+                  else bg = 'bg-red-500';
+                  tooltip = `${d.pct}%`;
+                }
+                return (
+                  <div key={d.dateStr} title={`${d.dateStr}: ${tooltip}`}
+                    className={`${bg} rounded-sm aspect-square flex items-center justify-center text-xs font-bold text-white/70 cursor-default transition-opacity hover:opacity-80`}>
+                    {d.day}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* ── Best Day of Week ── */}
+          {dowData.length > 0 && (
+            <div className="bg-white/5 border border-white/10 rounded-xl p-5">
+              <h3 className="text-white font-bold text-sm mb-4">📆 Avg Attendance by Day of Week</h3>
+              <div className="h-40">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={dowData} barSize={28}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#2a324b" />
+                    <XAxis dataKey="name" stroke="#94a3b8" tick={{ fontSize: 12 }} />
+                    <YAxis stroke="#94a3b8" domain={[0, 100]} tick={{ fontSize: 11 }} unit="%" />
+                    <Tooltip contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '8px' }} formatter={(v: any) => [`${v}%`, 'Avg Attendance']} />
+                    <Bar dataKey="avg" name="Avg %" radius={[4, 4, 0, 0]}>
+                      {dowData.map((entry, idx) => (
+                        <Cell key={idx} fill={entry.avg === Math.min(...dowData.map(d => d.avg)) ? '#f43f5e' : entry.avg === Math.max(...dowData.map(d => d.avg)) ? '#10b981' : '#6366f1'} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <p className="text-slate-500 text-xs mt-2">
+                Red = worst day · Green = best day · Based on this month's logs
+              </p>
+            </div>
+          )}
+
+          {/* ── Slot Fill Rate Gauge ── */}
+          {slotFillData.length > 0 && (
+            <div className="bg-white/5 border border-white/10 rounded-xl p-5">
+              <h3 className="text-white font-bold text-sm mb-4">⏰ Slot Fill Rate (per-slot capacity)</h3>
+              <div className="space-y-2">
+                {slotFillData.map((r, i) => (
+                  <div key={i} className="flex items-center gap-3 text-xs">
+                    <span className="text-slate-400 w-28 shrink-0">{r.slot} {r.course}</span>
+                    <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full transition-all ${r.pct >= 100 ? 'bg-red-500' : r.pct >= 85 ? 'bg-amber-500' : 'bg-indigo-500'}`}
+                        style={{ width: `${Math.min(r.pct, 100)}%` }} />
+                    </div>
+                    <span className={`font-bold w-16 text-right ${r.pct >= 100 ? 'text-red-400' : r.pct >= 85 ? 'text-amber-400' : 'text-indigo-300'}`}>
+                      {r.enrolled}/{r.cap} ({r.pct}%)
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-slate-500 text-xs mt-2">Red = full · Amber = &gt;85% · Only slots with enrolled students shown</p>
+            </div>
+          )}
 
           {flaggedStudents.length > 0 && (
             <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-5">
@@ -593,7 +886,7 @@ function InstituteModule() {
           </div>
 
           <div className="bg-white/5 border border-white/10 rounded-xl p-5">
-            <h3 className="text-white font-bold mb-4 text-sm">📋 Course Enrollment vs Capacity</h3>
+            <h3 className="text-white font-bold mb-4 text-sm">📋 Course Enrollment vs Total Capacity</h3>
             <div className="h-52">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={courseDistribution} barGap={4}>
@@ -603,26 +896,11 @@ function InstituteModule() {
                   <Tooltip contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '8px' }} />
                   <Legend wrapperStyle={{ fontSize: '11px', color: '#94a3b8' }} />
                   <Bar dataKey="count" name="Enrolled" fill="#6366f1" radius={[4, 4, 0, 0]} barSize={18} />
-                  <Bar dataKey="capacity" name="Max Capacity" fill="#374151" radius={[4, 4, 0, 0]} barSize={18} />
+                  <Bar dataKey="capacity" name="Total Capacity" fill="#374151" radius={[4, 4, 0, 0]} barSize={18} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
-            <p className="text-slate-500 text-xs mt-2">Shorthand has no capacity limit.</p>
-          </div>
-
-          <div className="bg-white/5 border border-white/10 rounded-xl p-5">
-            <h3 className="text-white font-bold mb-4 text-sm">⏰ Slot Utilization</h3>
-            <div className="h-48">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={slotUtilData} barSize={22}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#2a324b" />
-                  <XAxis dataKey="slot" stroke="#94a3b8" tick={{ fontSize: 11 }} />
-                  <YAxis stroke="#94a3b8" allowDecimals={false} tick={{ fontSize: 11 }} />
-                  <Tooltip contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '8px' }} />
-                  <Bar dataKey="count" name="Students" fill="#6366f1" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            <p className="text-slate-500 text-xs mt-2">Shorthand has no capacity limit. Capacity = all slots combined.</p>
           </div>
 
           <div className="bg-white/5 border border-white/10 rounded-xl p-5">
@@ -685,6 +963,18 @@ function InstituteModule() {
             )}
           </div>
 
+          {/* Flexible students notice */}
+          {(() => {
+            const alreadySavedFlexCount = instStudents.filter(
+              s => s.status === 'active' && s.batch_slot === 'Flexible' && flexibleStudentsAlreadySaved.has(s.id)
+            ).length;
+            return alreadySavedFlexCount > 0 ? (
+              <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-lg px-4 py-3 text-indigo-300 text-sm">
+                ℹ️ {alreadySavedFlexCount} flexible student{alreadySavedFlexCount > 1 ? 's' : ''} already saved for {attDate} in another slot — hidden here.
+              </div>
+            ) : null;
+          })()}
+
           <div className="flex flex-wrap gap-3">
             <button onClick={() => { const m: Record<string,'P'|'A'|'L'> = {}; studentsForSlot.forEach(s => { m[s.id] = 'P'; }); setAttMap(m); }}
               className="bg-emerald-600/20 hover:bg-emerald-600/40 border border-emerald-500/30 text-emerald-300 px-4 py-2 rounded-lg text-sm font-bold transition-all">
@@ -744,24 +1034,54 @@ function InstituteModule() {
             </div>
           )}
 
+          {/* ── Holiday Manager (FIX 4: persisted to DB, delete individual dates) ── */}
           <div className="bg-white/5 border border-white/10 rounded-xl p-5">
             <h3 className="text-white font-bold mb-3 text-sm">🎉 Holiday Manager</h3>
-            <div className="flex gap-3 mb-4">
+            <div className="flex gap-3 mb-4 flex-wrap">
               <input type="date" value={holidayInput} onChange={e => setHolidayInput(e.target.value)}
                 className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500" />
-              <button onClick={() => { if (holidayInput && !holidays.includes(holidayInput)) { setHolidays(prev => [...prev, holidayInput].sort()); setHolidayInput(''); } }}
+              <button onClick={() => {
+                if (holidayInput && !holidays.includes(holidayInput)) {
+                  const updated = [...holidays, holidayInput].sort();
+                  saveHolidays(updated);
+                  setHolidayInput('');
+                }
+              }}
                 className="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all">
                 + Mark Holiday
               </button>
             </div>
             {holidays.length === 0 ? <p className="text-slate-500 text-sm">No holidays marked yet.</p> : (
-              <div className="flex flex-wrap gap-2">
-                {holidays.map(h => (
-                  <div key={h} className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-lg">
-                    <span className="text-amber-300 text-xs font-semibold">{formatDate(h)}</span>
-                    <button onClick={() => setHolidays(prev => prev.filter(d => d !== h))} className="text-slate-400 hover:text-red-400 text-xs transition-colors">✕</button>
-                  </div>
-                ))}
+              <div className="space-y-3">
+                {/* Group holidays by month */}
+                {(() => {
+                  const byMonth: Record<string, string[]> = {};
+                  holidays.forEach(h => {
+                    const monthKey = h.slice(0, 7);
+                    if (!byMonth[monthKey]) byMonth[monthKey] = [];
+                    byMonth[monthKey].push(h);
+                  });
+                  return Object.entries(byMonth).map(([month, dates]) => (
+                    <div key={month}>
+                      <div className="text-xs text-slate-500 font-semibold mb-2 uppercase">
+                        {new Date(month + '-01').toLocaleString('en-IN', { month: 'long', year: 'numeric' })}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {dates.map(h => (
+                          <div key={h} className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-lg">
+                            <span className="text-amber-300 text-xs font-semibold">{formatDate(h)}</span>
+                            <button
+                              onClick={() => saveHolidays(holidays.filter(d => d !== h))}
+                              className="text-slate-400 hover:text-red-400 text-xs transition-colors"
+                              title="Delete this holiday">
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ));
+                })()}
               </div>
             )}
           </div>
@@ -956,6 +1276,10 @@ function InstituteModule() {
                 className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-lg text-sm font-bold transition-all">
                 📥 Excel (.xlsx)
               </button>
+              <button onClick={exportBackup}
+                className="bg-white/10 hover:bg-white/20 border border-white/10 text-white px-4 py-2.5 rounded-lg text-sm font-bold transition-all">
+                📦 Backup JSON
+              </button>
             </div>
           </div>
 
@@ -996,85 +1320,8 @@ function InstituteModule() {
               </table>
             </div>
             <div className="p-4 border-t border-white/10 text-xs text-amber-400/70">
-              ⚠️ Below 75% highlighted. Holidays excluded. Excel has second sheet with low-attendance list.
+              ⚠️ Below 75% highlighted. Holidays excluded from working days.
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* ══════════════ SETTINGS ══════════════ */}
-      {instituteTab === 'settings' && (
-        <div className="space-y-5 max-w-2xl">
-          <div className="bg-white/5 border border-white/10 rounded-xl p-6 space-y-5">
-            <h3 className="text-white font-bold text-sm border-b border-white/10 pb-3">🏫 Institute Details</h3>
-            <div>
-              <label className="text-xs font-semibold text-slate-400 mb-1.5 block">Institute Name</label>
-              <input type="text" value={settingsForm.institute_name} onChange={e => setSettingsForm(p => ({ ...p, institute_name: e.target.value }))}
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-indigo-500" />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-semibold text-slate-400 mb-1.5 block">Primary WhatsApp</label>
-                <input type="text" value={settingsForm.primary_admin_phone} onChange={e => setSettingsForm(p => ({ ...p, primary_admin_phone: e.target.value.replace(/\D/g,'').slice(0,10) }))}
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white font-mono focus:outline-none focus:border-indigo-500" />
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-slate-400 mb-1.5 block">Secondary WhatsApp</label>
-                <input type="text" value={settingsForm.secondary_admin_phone} onChange={e => setSettingsForm(p => ({ ...p, secondary_admin_phone: e.target.value.replace(/\D/g,'').slice(0,10) }))}
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white font-mono focus:outline-none focus:border-indigo-500" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white/5 border border-white/10 rounded-xl p-6 space-y-5">
-            <h3 className="text-white font-bold text-sm border-b border-white/10 pb-3">💬 Message Templates</h3>
-            <div>
-              <label className="text-xs font-semibold text-slate-400 mb-1.5 block">
-                Absence Template <span className="ml-2 text-indigo-400 font-normal">Placeholders: {'{name}'} {'{date}'} {'{course}'} {'{institute}'}</span>
-              </label>
-              <textarea rows={3} value={settingsForm.absence_template} onChange={e => setSettingsForm(p => ({ ...p, absence_template: e.target.value }))}
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white text-sm resize-none focus:outline-none focus:border-indigo-500" />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-slate-400 mb-1.5 block">
-                Fee Reminder Template <span className="ml-2 text-indigo-400 font-normal">Placeholders: {'{name}'} {'{course}'} {'{institute}'}</span>
-              </label>
-              <textarea rows={3} value={settingsForm.fee_template} onChange={e => setSettingsForm(p => ({ ...p, fee_template: e.target.value }))}
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white text-sm resize-none focus:outline-none focus:border-indigo-500" />
-            </div>
-          </div>
-
-          <button onClick={saveSettings} disabled={savingSettings}
-            className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-6 py-3 rounded-xl transition-all disabled:opacity-50">
-            {savingSettings ? 'Saving...' : settingsSaved ? '✅ Saved!' : '💾 Save Settings'}
-          </button>
-
-          <div className="bg-white/5 border border-white/10 rounded-xl p-6 space-y-4">
-            <h3 className="text-white font-bold text-sm border-b border-white/10 pb-3">🗄️ Backup & Restore</h3>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <button onClick={exportBackup} className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-2.5 rounded-lg text-sm transition-all">
-                📥 Export Backup (JSON)
-              </button>
-              <label className="bg-white/10 hover:bg-white/20 border border-white/10 text-white font-bold px-5 py-2.5 rounded-lg text-sm cursor-pointer text-center transition-all">
-                📤 Import Backup
-                <input type="file" accept=".json" className="hidden" onChange={e => {
-                  const f = e.target.files?.[0]; if (!f) return;
-                  const reader = new FileReader();
-                  reader.onload = ev => {
-                    try {
-                      const p = JSON.parse(ev.target?.result as string);
-                      if (p.instStudents) setInstStudents(p.instStudents);
-                      if (p.attendanceLogs) setAttendanceLogs(p.attendanceLogs);
-                      if (p.holidays) setHolidays(p.holidays);
-                      if (p.settings) { setSettings(p.settings); setSettingsForm(p.settings); }
-                      alert('✅ Backup restored. Re-save to sync Supabase.');
-                    } catch { alert('❌ Invalid backup file.'); }
-                  };
-                  reader.readAsText(f);
-                }} />
-              </label>
-            </div>
-            <p className="text-slate-500 text-xs">Export = full JSON snapshot. Import restores local view.</p>
           </div>
         </div>
       )}
@@ -1198,223 +1445,201 @@ function AdminPanelContent() {
     finally { setUploading(false); }
   };
 
-  const handleDeletePassage = async (passageId: string) => {
+  const handleDeletePassage = async (id: string) => {
     if (!confirm('Delete this passage?')) return;
-    try {
-      const { error: deleteError } = await supabase.from('passages').delete().eq('id', passageId);
-      if (deleteError) throw deleteError;
-      setPassages(prev => prev.filter(p => p.id !== passageId));
-    } catch (err) { alert('Failed to delete passage.'); }
+    await supabase.from('passages').delete().eq('id', id);
+    fetchPassages();
   };
 
   const filteredStudents = students.filter(s =>
-    s.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.email?.toLowerCase().includes(searchQuery.toLowerCase())
+    (s.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      s.email?.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   if (loading) return (
     <div className="min-h-screen bg-[#0b0f19] flex items-center justify-center">
-      <div className="text-xl text-slate-400 animate-pulse">Loading Admin Gate...</div>
+      <div className="text-xl text-slate-400 animate-pulse">Authenticating...</div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-[#0b0f19] text-white relative overflow-hidden">
-      <div className="absolute top-0 -left-1/4 w-96 h-96 bg-indigo-600 rounded-full filter blur-[120px] opacity-20 pointer-events-none" />
-      <div className="absolute bottom-0 -right-1/4 w-96 h-96 bg-emerald-600 rounded-full filter blur-[120px] opacity-10 pointer-events-none" />
-      <div className="relative z-10">
-        <Navbar hideContact={true} />
-        <div className="max-w-6xl mx-auto px-4 py-12">
+    <div className="min-h-screen bg-[#0b0f19] text-white">
+      <Navbar />
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
 
-          <div className="mb-12 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-            <div>
-              <span className="text-xs font-semibold tracking-wider text-indigo-400 uppercase mb-1 block">Lakshmi Technical Institute</span>
-              <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-300">Administrative Dashboard</h1>
-              <p className="text-slate-400 mt-1">Track student progress and upload evaluation passages</p>
-            </div>
-            <div className="flex flex-wrap bg-white/5 p-1 rounded-xl border border-white/10 self-start gap-1">
-              {([
-                { id: 'students', label: '📊 Student Progress' },
-                { id: 'passages', label: '📄 Manage Passages' },
-                { id: 'institute', label: '🏫 Institute' },
-              ] as const).map(tab => (
-                <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                  className={`px-5 py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab === tab.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}>
-                  {tab.label}
-                </button>
-              ))}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-3xl font-extrabold text-white">Administrative Dashboard</h1>
+            <p className="text-slate-400 text-sm mt-1">Track student progress and upload evaluation passages</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {(['students', 'passages', 'institute'] as const).map(tab => (
+              <button key={tab} onClick={() => setActiveTab(tab)}
+                className={`px-4 py-2 rounded-lg text-sm font-bold transition-all capitalize ${activeTab === tab ? 'bg-indigo-600 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white'}`}>
+                {tab === 'students' ? '📊 Student Progress' : tab === 'passages' ? '📝 Manage Passages' : '🏫 Institute'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {activeTab === 'students' && (
+          <div className="space-y-6">
+            {selectedStudent && (
+              <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-xl">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-bold">{selectedStudent.full_name || 'Anonymous'} — Test History</h2>
+                  <button onClick={() => setSelectedStudent(null)} className="text-slate-400 hover:text-white text-sm">✕ Close</button>
+                </div>
+                {selectedStudentTests.length === 0 ? (
+                  <p className="text-slate-500 text-sm">No tests recorded.</p>
+                ) : (
+                  <div className="h-48">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={selectedStudentTests.map((t, i) => ({ test: i + 1, wpm: t.wpm, accuracy: t.accuracy }))}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#2a324b" />
+                        <XAxis dataKey="test" stroke="#94a3b8" tick={{ fontSize: 11 }} />
+                        <YAxis stroke="#94a3b8" tick={{ fontSize: 11 }} />
+                        <Tooltip contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '8px' }} />
+                        <Legend wrapperStyle={{ fontSize: '11px', color: '#94a3b8' }} />
+                        <Line type="monotone" dataKey="wpm" stroke="#818cf8" strokeWidth={2} dot={false} name="WPM" />
+                        <Line type="monotone" dataKey="accuracy" stroke="#10b981" strokeWidth={2} dot={false} name="Accuracy %" />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </div>
+            )}
+            <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+              <div className="p-6 border-b border-white/10 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+                <h2 className="text-xl font-bold text-white">Student Telemetry</h2>
+                <div className="flex gap-3 flex-wrap">
+                  <input type="text" placeholder="Search students..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                    className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder-slate-400 focus:outline-none focus:border-indigo-500" />
+                  <button onClick={fetchStudentTelemetry} className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg border border-white/10 text-xs font-semibold text-white transition-all">
+                    🔄 Refresh
+                  </button>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-white/5 text-slate-400 text-xs font-semibold uppercase tracking-wider">
+                      <th className="px-6 py-4">Learner</th>
+                      <th className="px-6 py-4">Email</th>
+                      <th className="px-6 py-4 text-center">Tests</th>
+                      <th className="px-6 py-4 text-center">Avg WPM</th>
+                      <th className="px-6 py-4 text-center">Avg Accuracy</th>
+                      <th className="px-6 py-4">Enrolled</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5 text-sm text-white">
+                    {loadingStudents ? (
+                      <tr><td colSpan={6} className="text-center py-12 text-slate-400 animate-pulse">Loading...</td></tr>
+                    ) : filteredStudents.length > 0 ? filteredStudents.map(student => {
+                      const metrics = metricsMap[student.id] || { total_tests: 0, avg_wpm: 0, avg_accuracy: 0 };
+                      return (
+                        <tr key={student.id} onClick={() => handleSelectStudent(student)} className="cursor-pointer hover:bg-white/5 transition-colors">
+                          <td className="px-6 py-4 font-semibold">{student.full_name || 'Anonymous'}</td>
+                          <td className="px-6 py-4 text-slate-400">{student.email || 'n/a'}</td>
+                          <td className="px-6 py-4 text-center font-bold text-indigo-400">{metrics.total_tests}</td>
+                          <td className="px-6 py-4 text-center"><span className="font-extrabold">{metrics.avg_wpm}</span> <span className="text-xs text-slate-400">WPM</span></td>
+                          <td className="px-6 py-4 text-center font-bold text-emerald-400">{metrics.avg_accuracy}%</td>
+                          <td className="px-6 py-4 text-slate-400">{new Date(student.created_at).toLocaleDateString('en-IN')}</td>
+                        </tr>
+                      );
+                    }) : (
+                      <tr><td colSpan={6} className="text-center py-12 text-slate-500">No students found.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
+        )}
 
-          {activeTab === 'students' && (
-            <div className="space-y-6">
-              {selectedStudent && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-                  <div className="bg-[#111827] border border-white/10 rounded-2xl p-8 shadow-2xl w-full max-w-4xl relative max-h-[90vh] overflow-y-auto">
-                    <button onClick={() => { setSelectedStudent(null); setSelectedStudentTests([]); }} className="absolute top-4 right-4 text-slate-400 hover:text-white text-xl">✖️</button>
-                    <h3 className="text-2xl font-bold text-white mb-2">Performance Curve: {selectedStudent.full_name || 'Typist'}</h3>
-                    <p className="text-sm text-slate-400 mb-6">Plotting chronological speeds (WPM) and accuracy fluctuations.</p>
-                    {selectedStudentTests.length > 0 ? (
-                      <div className="h-96 w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={selectedStudentTests.map((t, idx) => ({ index: `Test ${idx + 1}`, wpm: t.wpm, accuracy: t.accuracy }))}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#2a324b" />
-                            <XAxis dataKey="index" stroke="#94a3b8" />
-                            <YAxis stroke="#94a3b8" />
-                            <Tooltip contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '8px' }} labelStyle={{ color: '#fff' }} itemStyle={{ color: '#818cf8' }} />
-                            <Line type="monotone" dataKey="wpm" stroke="#818cf8" strokeWidth={3} name="Speed (WPM)" dot={{ fill: '#818cf8', r: 4 }} />
-                            <Line type="monotone" dataKey="accuracy" stroke="#10b981" strokeWidth={2} name="Accuracy %" strokeDasharray="5 5" />
-                          </LineChart>
-                        </ResponsiveContainer>
-                      </div>
-                    ) : (
-                      <div className="h-72 w-full flex items-center justify-center text-slate-500 border border-dashed border-white/5 rounded-xl">
-                        This typist has not logged any valid evaluation results yet.
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-              <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
-                <div className="p-6 border-b border-white/10 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        {activeTab === 'passages' && (
+          <>
+            <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl mb-12">
+              <h2 className="text-xl font-bold mb-6">Upload New PDF Syllabus</h2>
+              {error && <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">⚠️ {error}</div>}
+              {success && <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-emerald-400 text-sm">✅ {success}</div>}
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <h2 className="text-xl font-bold text-white">Live Learner Progress Audits</h2>
-                    <p className="text-xs text-slate-400 mt-1">Click a student's row to open their graph!</p>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">Language</label>
+                    <select value={language} onChange={e => setLanguage(e.target.value as 'english' | 'tamil')} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white">
+                      <option value="english" className="bg-[#111827]">English</option>
+                      <option value="tamil" className="bg-[#111827]">Tamil</option>
+                    </select>
                   </div>
-                  <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
-                    <div className="relative w-full sm:w-64">
-                      <input type="text" placeholder="Search by name or email..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder-slate-400 focus:outline-none focus:border-indigo-500" />
-                      <svg className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                      </svg>
-                    </div>
-                    <button onClick={fetchStudentTelemetry} className="w-full sm:w-auto bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg border border-white/10 text-xs font-semibold text-white transition-all whitespace-nowrap">
-                      🔄 Refresh Metrics
-                    </button>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">Difficulty Grade</label>
+                    <select value={level} onChange={e => setLevel(e.target.value as 'junior' | 'senior')} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white">
+                      <option value="junior" className="bg-[#111827]">Junior (1500 Strokes)</option>
+                      <option value="senior" className="bg-[#111827]">Senior (2250 Strokes)</option>
+                    </select>
                   </div>
                 </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="bg-white/5 text-slate-400 text-xs font-semibold uppercase tracking-wider">
-                        <th className="px-6 py-4">Learner Profile</th>
-                        <th className="px-6 py-4">Email Address</th>
-                        <th className="px-6 py-4 text-center">Tests Completed</th>
-                        <th className="px-6 py-4 text-center">Avg Speed</th>
-                        <th className="px-6 py-4 text-center">Avg Accuracy</th>
-                        <th className="px-6 py-4">Enrolled On</th>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Passage Title / Reference Number</label>
+                  <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g., English Junior Test Set 1" className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">PDF File</label>
+                  <div className="border-2 border-dashed border-white/10 rounded-xl px-6 py-10 flex flex-col items-center justify-center hover:bg-white/5 transition-colors cursor-pointer relative">
+                    <input type="file" accept=".pdf" onChange={handleFileChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                    <svg className="w-12 h-12 text-slate-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                    <p className="text-white text-base font-semibold">{file ? file.name : 'Drag and drop your PDF here, or click to browse'}</p>
+                  </div>
+                </div>
+                <button type="submit" disabled={uploading} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 rounded-xl transition-all disabled:opacity-50">
+                  {uploading ? 'Parsing PDF Text...' : 'Add Passage 🚀'}
+                </button>
+              </form>
+            </div>
+            <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+              <div className="p-6 border-b border-white/10 flex justify-between items-center">
+                <h2 className="text-xl font-bold text-white">Existing Passages</h2>
+                <div className="bg-emerald-500/20 text-emerald-300 text-xs font-bold px-3 py-1.5 rounded-md border border-emerald-500/30">Total: {passages.length}</div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-white/5 text-slate-400 text-xs font-semibold uppercase tracking-wider">
+                      <th className="px-6 py-4">Title</th>
+                      <th className="px-6 py-4">Language</th>
+                      <th className="px-6 py-4">Grade</th>
+                      <th className="px-6 py-4">Created</th>
+                      <th className="px-6 py-4 text-center">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5 text-sm text-white">
+                    {loadingPassages ? (
+                      <tr><td colSpan={5} className="text-center py-12 text-slate-400 animate-pulse">Loading passages...</td></tr>
+                    ) : passages.length > 0 ? passages.map(p => (
+                      <tr key={p.id} className="hover:bg-white/5 transition-colors">
+                        <td className="px-6 py-4 font-semibold truncate max-w-xs">{p.text.slice(0, 45)}...</td>
+                        <td className="px-6 py-4 capitalize text-indigo-300">{p.language}</td>
+                        <td className="px-6 py-4 capitalize text-emerald-400">{p.level}</td>
+                        <td className="px-6 py-4 text-slate-400">{new Date(p.created_at).toLocaleDateString('en-IN')}</td>
+                        <td className="px-6 py-4 text-center">
+                          <button onClick={() => handleDeletePassage(p.id)} className="bg-red-500/20 hover:bg-red-500 text-red-400 hover:text-white px-3 py-1.5 rounded-md text-xs font-bold transition-all">Delete 🗑️</button>
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5 text-sm text-white">
-                      {loadingStudents ? (
-                        <tr><td colSpan={6} className="text-center py-12 text-slate-400 animate-pulse">Synchronizing student telemetry...</td></tr>
-                      ) : filteredStudents.length > 0 ? filteredStudents.map(student => {
-                        const metrics = metricsMap[student.id] || { total_tests: 0, avg_wpm: 0, avg_accuracy: 0 };
-                        return (
-                          <tr key={student.id} onClick={() => handleSelectStudent(student)} className="cursor-pointer transition-colors hover:bg-white/5">
-                            <td className="px-6 py-4 font-semibold text-white">{student.full_name || 'Anonymous Typist'}</td>
-                            <td className="px-6 py-4 text-slate-400">{student.email || 'n/a'}</td>
-                            <td className="px-6 py-4 text-center font-bold text-indigo-400">{metrics.total_tests}</td>
-                            <td className="px-6 py-4 text-center"><span className="font-extrabold text-white">{metrics.avg_wpm}</span> <span className="text-xs text-slate-400">WPM</span></td>
-                            <td className="px-6 py-4 text-center font-bold text-emerald-400">{metrics.avg_accuracy}%</td>
-                            <td className="px-6 py-4 text-slate-400">{new Date(student.created_at).toLocaleDateString('en-IN')}</td>
-                          </tr>
-                        );
-                      }) : (
-                        <tr><td colSpan={6} className="text-center py-12 text-slate-500">No students found matching that search.</td></tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                    )) : (
+                      <tr><td colSpan={5} className="text-center py-12 text-slate-500">No passages. Add one above!</td></tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
-          )}
+          </>
+        )}
 
-          {activeTab === 'passages' && (
-            <>
-              <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl mb-12">
-                <h2 className="text-xl font-bold mb-6">Upload New PDF Syllabus</h2>
-                {error && <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">⚠️ {error}</div>}
-                {success && <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-emerald-400 text-sm">✅ {success}</div>}
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">Language</label>
-                      <select value={language} onChange={e => setLanguage(e.target.value as 'english' | 'tamil')} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white">
-                        <option value="english" className="bg-[#111827]">English</option>
-                        <option value="tamil" className="bg-[#111827]">Tamil</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">Difficulty Grade</label>
-                      <select value={level} onChange={e => setLevel(e.target.value as 'junior' | 'senior')} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white">
-                        <option value="junior" className="bg-[#111827]">Junior (1500 Strokes)</option>
-                        <option value="senior" className="bg-[#111827]">Senior (2250 Strokes)</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Passage Title / Reference Number</label>
-                    <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g., English Junior Test Set 1" className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">PDF File</label>
-                    <div className="border-2 border-dashed border-white/10 rounded-xl px-6 py-10 flex flex-col items-center justify-center hover:bg-white/5 transition-colors cursor-pointer relative">
-                      <input type="file" accept=".pdf" onChange={handleFileChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                      <svg className="w-12 h-12 text-slate-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                      </svg>
-                      <p className="text-white text-base font-semibold">{file ? file.name : 'Drag and drop your PDF here, or click to browse'}</p>
-                    </div>
-                  </div>
-                  <button type="submit" disabled={uploading} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 rounded-xl transition-all disabled:opacity-50">
-                    {uploading ? 'Parsing PDF Text...' : 'Add Passage 🚀'}
-                  </button>
-                </form>
-              </div>
-              <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
-                <div className="p-6 border-b border-white/10 flex justify-between items-center">
-                  <h2 className="text-xl font-bold text-white">Existing Database Passages</h2>
-                  <div className="bg-emerald-500/20 text-emerald-300 text-xs font-bold px-3 py-1.5 rounded-md border border-emerald-500/30">Total Loaded: {passages.length}</div>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="bg-white/5 text-slate-400 text-xs font-semibold uppercase tracking-wider">
-                        <th className="px-6 py-4">Title Prefix</th>
-                        <th className="px-6 py-4">Language</th>
-                        <th className="px-6 py-4">Grade</th>
-                        <th className="px-6 py-4">Created On</th>
-                        <th className="px-6 py-4 text-center">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5 text-sm text-white">
-                      {loadingPassages ? (
-                        <tr><td colSpan={5} className="text-center py-12 text-slate-400 animate-pulse">Syncing passages...</td></tr>
-                      ) : passages.length > 0 ? passages.map(p => (
-                        <tr key={p.id} className="hover:bg-white/5 transition-colors">
-                          <td className="px-6 py-4 font-semibold text-white truncate max-w-xs">{p.text.slice(0, 45)}...</td>
-                          <td className="px-6 py-4 capitalize text-indigo-300">{p.language}</td>
-                          <td className="px-6 py-4 capitalize text-emerald-400">{p.level}</td>
-                          <td className="px-6 py-4 text-slate-400">{new Date(p.created_at).toLocaleDateString('en-IN')}</td>
-                          <td className="px-6 py-4 text-center">
-                            <button onClick={() => handleDeletePassage(p.id)} className="bg-red-500/20 hover:bg-red-500 text-red-400 hover:text-white px-3 py-1.5 rounded-md text-xs font-bold transition-all">Delete 🗑️</button>
-                          </td>
-                        </tr>
-                      )) : (
-                        <tr><td colSpan={5} className="text-center py-12 text-slate-500">No passages found. Add one above!</td></tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </>
-          )}
+        {activeTab === 'institute' && <InstituteModule />}
 
-          {activeTab === 'institute' && <InstituteModule />}
-
-        </div>
       </div>
     </div>
   );
