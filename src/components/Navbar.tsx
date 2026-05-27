@@ -112,36 +112,14 @@ export default function Navbar({ hideContact = false }: { hideContact?: boolean 
 
             <ThemeToggle />
 
-            {/* 🛡️ ADMIN PANEL DROPDOWN */}
+            {/* 🛡️ STANDALONE ADMIN PANEL BUTTON */}
             {isAdmin && (
-              <div className="relative">
-                <button
-                  onClick={() => setOpenDropdown(openDropdown === 'admin' ? null : 'admin')}
-                  className="bg-[#4f39f6] hover:opacity-90 text-white font-bold px-4 h-10 flex items-center justify-center rounded-lg transition-all whitespace-nowrap shadow-lg hover:shadow-[#4f39f6]/30 gap-2"
-                >
-                  Admin Panel
-                  <svg
-                    className={`w-4 h-4 text-gray-900 transition-transform ${openDropdown === 'admin' ? 'rotate-180' : ''}`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-
-                {openDropdown === 'admin' && (
-                  <div className="absolute top-full right-0 mt-2 bg-[#111827] border border-white/10 rounded-xl shadow-2xl py-2 w-64 z-50">
-                    <Link href="/admin?tab=students" onClick={() => setOpenDropdown(null)} className="block px-4 py-2 text-sm text-white hover:bg-white/5 transition-colors">
-                      📊 View Student Progress
-                    </Link>
-                    <hr className="my-2 border-white/5" />
-                    <Link href="/admin?tab=passages" onClick={() => setOpenDropdown(null)} className="block px-4 py-2 text-sm text-white hover:bg-white/5 transition-colors">
-                      📄 Manage Typing Passages
-                    </Link>
-                  </div>
-                )}
-              </div>
+              <Link
+                href="/admin?tab=students"
+                className="bg-[#4f39f6] hover:opacity-90 text-white font-bold px-4 h-10 flex items-center justify-center rounded-lg transition-all whitespace-nowrap shadow-lg hover:shadow-[#4f39f6]/30"
+              >
+                Admin Panel
+              </Link>
             )}
 
             {/* Account Dropdown */}
