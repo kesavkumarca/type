@@ -6,7 +6,6 @@ import { useRouter, useParams } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import { supabase } from '@/config/supabase';
 import Link from 'next/link';
-import { jsPDF } from 'jspdf';
 
 interface Passage {
   id: string;
@@ -259,151 +258,6 @@ export default function TypingTest() {
     }
   };
 
-  // 📝 Standard White Paper PDF
-  const generatePDFReport = () => {
-    if (!results || !passage) return;
-
-    // ✅ Automatically use loaded profileName, or fallback to user email if name is empty
-    const studentName = profileName || user?.email || "N/A";
-
-    // --- FIX STARTS HERE ---
-    const now = new Date();
-    const formattedDate = now.toLocaleDateString();
-    const formattedTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
-    // --- FIX ENDS HERE ---
-
-    const doc = new jsPDF({
-      orientation: 'portrait',
-      unit: 'mm',
-      format: 'a4',
-    });
-
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const bottomMargin = 20;
-
-    // 🏷️ 1. Institute Branding Header
-    doc.addImage('/lakshmi-logo.png', 'PNG', (pageWidth / 2) - 15, 15, 30, 30);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(22);
-    doc.setTextColor(0, 0, 0);
-    doc.text('LAKSHMI TECHNICAL INSTITUTE', pageWidth / 2, 55, { align: 'center' });
-
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'normal');
-    doc.text('Official Typing Examination Statement of Marks', pageWidth / 2, 65, { align: 'center' });
-
-    doc.setLineWidth(0.5);
-    doc.setDrawColor(0, 0, 0);
-    doc.line(20, 72, pageWidth - 20, 72);
-
-    // 👤 2. Student & Exam Info
-    doc.setFontSize(12);
-    doc.text(`Student Name: ${studentName}`, 20, 83);
-    doc.text(`Student ID: ${user?.email || 'N/A'}`, 20, 91);
-    doc.text(`Language: ${language.toUpperCase()}`, 20, 99);
-    doc.text(`Exam Level: ${level.toUpperCase()}`, 20, 107);
-    
-    // This line now includes both Date and Time
-    doc.text(`Date & Time: ${formattedDate} | ${formattedTime}`, pageWidth - 20, 83, { align: 'right' });
-
-    // 📊 3. Table Metrics
-    doc.setFillColor(245, 245, 245);
-    doc.rect(20, 115, pageWidth - 40, 10, 'FD');
-    doc.setFont('helvetica', 'bold');
-    doc.text('Examination Parameter', 25, 121);
-    doc.text('Obtained Metric', pageWidth - 25, 121, { align: 'right' });
-
-    doc.setFont('helvetica', 'normal');
-    doc.text('Gross Speed', 25, 133);
-    doc.text(`${results.wpm} WPM`, pageWidth - 25, 133, { align: 'right' });
-    doc.line(20, 137, pageWidth - 20, 137);
-
-    doc.text('Total Strokes Keyed', 25, 145);
-    doc.text(`${results.strokes}`, pageWidth - 25, 145, { align: 'right' });
-    doc.line(20, 149, pageWidth - 20, 149);
-
-    doc.text('Word Mistakes Committed', 25, 157);
-    doc.text(`${results.mistakes}`, pageWidth - 25, 157, { align: 'right' });
-    doc.line(20, 161, pageWidth - 20, 161);
-
-    doc.text('Grade Accuracy Ratio', 25, 169);
-    doc.text(`${results.accuracy}%`, pageWidth - 25, 169, { align: 'right' });
-    doc.line(20, 173, pageWidth - 20, 173);
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFillColor(245, 245, 245);
-    doc.rect(20, 180, pageWidth - 40, 12, 'FD');
-    doc.text('NET AGGREGATE MARKS', 25, 188);
-    doc.text(`${results.marks} / 100`, pageWidth - 25, 188, { align: 'right' });
-
-    // 🔴 🔍 4. HIGHLIGHT WRONG + SKIPPED WORDS EVALUATION
-    doc.setFontSize(14);
-    doc.text('Individual Word Mistake Analysis Log', 20, 208);
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'normal');
-
-    const targetWords = passage.text.trim().split(/\s+/).filter(Boolean);
-    const typedWords = userInput.trim().split(/\s+/).filter(Boolean);
-
-    let startX = 20;
-    let startY = 218;
-    const marginY = 8;
-    const marginX = doc.getTextWidth(' ') + 2;
-
-    targetWords.forEach((word, index) => {
-      const isTyped = index < typedWords.length;
-      const isWrong = isTyped && typedWords[index] !== word;
-      const isSkipped = !isTyped;
-
-      const wordWidth = doc.getTextWidth(word);
-
-      if (startX + wordWidth > pageWidth - 20) {
-        startX = 20;
-        startY += marginY;
-      }
-
-      if (startY > pageHeight - bottomMargin) {
-        doc.addPage();
-        startY = 25;
-        startX = 20;
-      }
-
-      if (isWrong) {
-        doc.setTextColor(220, 50, 50);
-        doc.setFont('helvetica', 'bold');
-        doc.text(typedWords[index], startX, startY);
-        doc.setDrawColor(220, 50, 50);
-        doc.line(startX, startY + 1, startX + wordWidth, startY + 1);
-        doc.setTextColor(0, 0, 0);
-        doc.setFont('helvetica', 'normal');
-      } else if (isSkipped) {
-        doc.setTextColor(150, 150, 150);
-        doc.setFont('helvetica', 'italic');
-        doc.text(word, startX, startY);
-        doc.setTextColor(0, 0, 0);
-        doc.setFont('helvetica', 'normal');
-      } else {
-        doc.text(word, startX, startY);
-      }
-
-      startX += wordWidth + marginX;
-    });
-
-    if (startY + 30 > pageHeight - bottomMargin) {
-      doc.addPage();
-      startY = 25;
-    }
-
-    const passedText = results.passed ? 'VERDICT: EXAMINATION PASSED' : 'VERDICT: EXAMINATION UNSUCCESSFUL';
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'bold');
-
-    doc.text(passedText, 20, startY + 20);
-
-    doc.save(`LTITypingTest-${language}-${level}.pdf`);
-  };
-
   if (pageLoading || loading) {
     return (
       <div className="min-h-screen bg-[#0b0f19] flex items-center justify-center">
@@ -514,12 +368,6 @@ export default function TypingTest() {
                 className="bg-white/5 hover:bg-white/10 text-white border border-white/10 px-8 py-3 rounded-xl font-bold transition-all duration-300"
               >
                 Try Again
-              </button>
-              <button
-                onClick={generatePDFReport}
-                className="bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-3 rounded-xl font-bold transition-all duration-300 shadow-lg hover:shadow-emerald-500/30"
-              >
-                Download PDF Statement
               </button>
             </div>
           </div>
