@@ -458,7 +458,7 @@ export default function TypingTest() {
               ref={passageContainerRef}
               className="bg-black/30 border border-white/5 p-6 rounded-xl h-72 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10"
             >
-              <div className="text-slate-300 text-lg leading-relaxed font-mono flex flex-wrap gap-x-2 gap-y-1">
+              <div className="text-slate-300 text-lg leading-relaxed font-serif tracking-normal flex flex-wrap gap-x-2 gap-y-1">
                 {targetWordsArray.map((word, i) => {
                   let wordClass = "text-slate-400";
                   const isCurrent = i === (userInput.endsWith(' ') ? typedWordsArray.length : typedWordsArray.length - 1);
@@ -502,7 +502,7 @@ export default function TypingTest() {
               onCut={(e) => e.preventDefault()}
               onDrop={(e) => e.preventDefault()}
               onContextMenu={(e) => e.preventDefault()}
-              className="w-full h-72 p-4 bg-black/30 border border-white/5 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none resize-none text-white font-mono text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full h-72 p-4 bg-black/30 border border-white/5 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none resize-none text-white font-serif text-lg disabled:opacity-50 disabled:cursor-not-allowed"
               placeholder={testStarted ? 'Start typing here...' : 'Click "Start Test" to begin'}
             />
           </div>
