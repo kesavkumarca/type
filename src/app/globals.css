@@ -23,5 +23,11 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
 
+/* Tamil font rendering fix */
+.tamil-text,
+[lang="ta"],
+textarea[lang="ta"] {
+  font-family: var(--font-noto-tamil), 'Noto Sans Tamil', sans-serif;
 }
