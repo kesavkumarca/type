@@ -138,7 +138,9 @@ export default function TypingTest() {
 
   // Submit test
   const submitTest = useCallback(async (currentInput: string, currentTimeLeft: number) => {
-    if (!user || !passage) return;
+    if (!user || !passage || isSubmitting) return;
+
+    setIsSubmitting(true);
 
     const strokes = currentInput.length;
     const targetWords = passage.text.trim().split(/\s+/).filter(Boolean);
@@ -196,10 +198,12 @@ export default function TypingTest() {
       console.warn('⚠️ Metrics saved locally without Supabase persistence.');
       setResults(metrics);
       setTestComplete(true);
+    } finally {
+      setIsSubmitting(false);
     }
-  }, [user, passage, language, level]);
+  }, [user, passage, isSubmitting, language, level]);
 
-  // Timer - Automatically runs submitTest and marks completion on 00:00
+  // Timer - FIXED to update states flawlessly at 00:00
   useEffect(() => {
     if (!testStarted || testComplete) return;
 
@@ -208,6 +212,7 @@ export default function TypingTest() {
         if (prev <= 1) {
           clearInterval(timer);
           setTestComplete(true);
+          // Directly trigger background logic
           submitTest(userInputRef.current, 0);
           return 0;
         }
