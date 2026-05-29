@@ -20,9 +20,12 @@ export async function POST(request: Request) {
     // 📝 Extract Text using pdf-parse-fork
     const pdfData = await pdf(buffer);
     
-    // Clean up the text (remove unnecessary tabs and excessive spaces)
+    // Clean up the text with proper Unicode normalization for Indian scripts (Tamil, etc.)
+    // NFC normalization is crucial for proper character composition in Tamil
     const extractedText = pdfData.text
-      .replace(/\s+/g, ' ')
+      .normalize('NFC')  // Normalize to composed form (preserves Tamil character integrity)
+      .replace(/\t/g, ' ')  // Replace tabs with spaces
+      .replace(/ +/g, ' ')  // Replace multiple spaces with single space
       .trim();
 
     if (!extractedText) {

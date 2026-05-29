@@ -43,6 +43,7 @@ export default function TypingTest() {
   const passageContainerRef = useRef<HTMLDivElement>(null);
   const activeWordRef = useRef<HTMLSpanElement>(null);
   const userInputRef = useRef('');
+  const isSubmittingRef = useRef(false);
 
   useEffect(() => {
     userInputRef.current = userInput;
@@ -138,8 +139,9 @@ export default function TypingTest() {
 
   // Submit test
   const submitTest = useCallback(async (currentInput: string, currentTimeLeft: number) => {
-    if (!user || !passage || isSubmitting) return;
+    if (!user || !passage || isSubmittingRef.current) return;
 
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
 
     const strokes = currentInput.length;
@@ -199,9 +201,10 @@ export default function TypingTest() {
       setResults(metrics);
       setTestComplete(true);
     } finally {
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
-  }, [user, passage, isSubmitting, language, level]);
+  }, [user, passage, language, level]);
 
   // Timer - FIXED to update states flawlessly at 00:00
   useEffect(() => {

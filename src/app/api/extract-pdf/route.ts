@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
 
     const pdfData = await pdfParse(buffer);
 
-    return NextResponse.json({ text: pdfData.text });
+    return NextResponse.json({ text: pdfData.text.normalize('NFC') });
   } catch (error: any) {
     console.error('PDF Extraction Error:', error);
     return NextResponse.json({ error: 'Failed to read PDF file' }, { status: 500 });
