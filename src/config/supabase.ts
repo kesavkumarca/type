@@ -3,8 +3,8 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder';
 
-// 🔒 Using a singleton pattern and turning off browser navigator locks to prevent freezing
-let supabaseInstance: any = null;
+// Using singleton pattern with proper session management
+let supabaseInstance: ReturnType<typeof createClient> | null = null;
 
 export const createBrowserClient = () => {
   if (!supabaseInstance) {
@@ -13,8 +13,6 @@ export const createBrowserClient = () => {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
-        // 🛑 This turns off the exact Web Lock causing your browser to freeze!
-        lock: async (name, acquireTimeout, fn) => fn(), 
       }
     });
   }

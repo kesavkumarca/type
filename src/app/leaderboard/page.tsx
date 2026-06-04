@@ -1,14 +1,12 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
-
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import { supabase } from '@/config/supabase';
 
-interface LeaderboardEntry {
+interface LeaderboardData {
   user_id: string;
   full_name: string;
   max_wpm: number;
@@ -16,11 +14,59 @@ interface LeaderboardEntry {
   total_tests: number;
 }
 
+interface RawLeaderboardRow {
+  wpm: number;
+  accuracy: number;
+  user_id: string;
+  profiles: {
+    full_name: string;
+  } | null;
+}
+
 export default function Leaderboard() {
   const router = useRouter();
   const { user, loading } = useAuth();
-  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [rawLeaderboardData, setRawLeaderboardData] = useState<RawLeaderboardRow[]>([]);
   const [statsLoading, setStatsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Memoize leaderboard computation to avoid recalculation on every render
+  const leaderboard = useMemo(() => {
+    const userBestScores: { [key: string]: LeaderboardData } = {};
+
+    rawLeaderboardData.forEach((row: RawLeaderboardRow) => {
+      const userId = row.user_id;
+      const wpm = row.wpm;
+      const accuracy = row.accuracy;
+      const name = row.profiles?.full_name || 'Anonymous Typist';
+
+      if (!userBestScores[userId]) {
+        userBestScores[userId] = {
+          user_id: userId,
+          full_name: name,
+          max_wpm: wpm,
+          avg_accuracy: accuracy,
+          total_tests: 1,
+        };
+      } else {
+        userBestScores[userId].total_tests += 1;
+        userBestScores[userId].avg_accuracy += accuracy;
+        if (wpm > userBestScores[userId].max_wpm) {
+          userBestScores[userId].max_wpm = wpm;
+        }
+      }
+    });
+
+    const finalLeaderboard = Object.values(userBestScores)
+      .map((entry: LeaderboardData) => ({
+        ...entry,
+        avg_accuracy: Math.round(entry.avg_accuracy / entry.total_tests),
+      }))
+      .sort((a, b) => b.max_wpm - a.max_wpm)
+      .slice(0, 100); // Limit to top 100 entries
+
+    return finalLeaderboard;
+  }, [rawLeaderboardData]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -31,7 +77,8 @@ export default function Leaderboard() {
   useEffect(() => {
     const fetchLeaderboard = async () => {
       try {
-        // 🛠️ 1. Fetch ALL test results and inner join the user's name from profiles
+        setError(null);
+        // Fetch test results with join to profiles, with limit for performance
         const { data, error } = await supabase
           .from('test_results')
           .select(`
@@ -41,57 +88,25 @@ export default function Leaderboard() {
             profiles (
               full_name
             )
-          `);
+          `)
+          .order('wpm', { ascending: false })
+          .limit(5000); // Limit dataset to prevent massive payloads
 
         if (error) throw error;
 
-        if (data) {
-          const userBestScores: { [key: string]: LeaderboardEntry } = {};
-
-          // 🛠️ 2. Loop through results to aggregate by user (Finding their personal best WPM)
-          data.forEach((row: any) => {
-            const userId = row.user_id;
-            const wpm = row.wpm;
-            const accuracy = row.accuracy;
-            const name = row.profiles?.full_name || 'Anonymous Typist';
-
-            if (!userBestScores[userId]) {
-              userBestScores[userId] = {
-                user_id: userId,
-                full_name: name,
-                max_wpm: wpm,
-                avg_accuracy: accuracy,
-                total_tests: 1,
-              };
-            } else {
-              userBestScores[userId].total_tests += 1;
-              userBestScores[userId].avg_accuracy += accuracy;
-              if (wpm > userBestScores[userId].max_wpm) {
-                userBestScores[userId].max_wpm = wpm; // Overwrite if it's a new personal record!
-              }
-            }
-          });
-
-          // 🛠️ 3. Finish averages and push into an array
-          const finalLeaderboard = Object.values(userBestScores).map((entry) => ({
-            ...entry,
-            avg_accuracy: Math.round(entry.avg_accuracy / entry.total_tests),
-          }));
-
-          // 🛠️ 4. Sort from Highest WPM to Lowest
-          finalLeaderboard.sort((a, b) => b.max_wpm - a.max_wpm);
-
-          setLeaderboard(finalLeaderboard);
-        }
+        setRawLeaderboardData(data || []);
       } catch (err) {
         console.error('Error fetching leaderboard:', err);
+        setError('Failed to load leaderboard');
       } finally {
         setStatsLoading(false);
       }
     };
 
-    fetchLeaderboard();
-  }, [user, loading, router]);
+    if (!loading) {
+      fetchLeaderboard();
+    }
+  }, [loading]);
 
   if (loading) {
     return (
@@ -126,6 +141,11 @@ export default function Leaderboard() {
           </div>
 
           {/* 🏆 Rank Display Table */}
+          {error && (
+            <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-4 mb-8 text-red-400 text-sm">
+              ⚠️ {error}
+            </div>
+          )}
           <div className="bg-white dark:bg-white/5 backdrop-blur-md border border-zinc-200 dark:border-white/10 rounded-2xl p-8 mb-12 shadow-2xl overflow-x-auto transition-colors duration-300">
             {statsLoading ? (
               <div className="text-center text-zinc-500 dark:text-slate-400 py-12 animate-pulse">Pulling scoreboard metrics...</div>
