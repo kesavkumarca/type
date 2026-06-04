@@ -174,8 +174,7 @@ export default function TypingTest() {
     const metrics = { wpm, accuracy, strokes, correctWords, mistakes, marks, passed, deductionPerMistake };
 
     try {
-      // ✅ Explicitly passed generic typing context to Supabase client to prevent 'never[]' assignment compilation blocks
-      const { error } = await supabase.from<any, any>('test_results').insert([
+      const { error } = await supabase.from('test_results').insert([
         {
           user_id: user.id,
           passage_id: passage.id,

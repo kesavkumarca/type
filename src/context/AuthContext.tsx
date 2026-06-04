@@ -7,10 +7,10 @@ import { supabase, ADMIN_EMAIL } from '@/config/supabase';
 interface UserProfile {
   id: string;
   email: string;
-  full_name: string;
-  mobile_number: string;
-  date_of_birth: string;
-  created_at: string;
+  full_name: string | null;
+  mobile_number: string | null;
+  date_of_birth: string | null;
+  created_at: string | null;
 }
 
 interface AuthContextType {

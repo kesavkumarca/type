@@ -4,11 +4,6 @@ import { createClient } from '@supabase/supabase-js';
 // ✅ Uses the fork to prevent the DOMMatrix crash on Vercel!
 const pdfParse = require('pdf-parse-fork');
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
 function cleanTypingText(rawText: string): string {
   return rawText
     // 1. Remove page numbers or page separators
@@ -29,6 +24,15 @@ function cleanTypingText(rawText: string): string {
 
 export async function POST(req: NextRequest) {
   try {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+      return NextResponse.json({ error: 'Supabase admin environment variables are missing' }, { status: 500 });
+    }
+
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
     const formData = await req.formData();
     const files = formData.getAll('files') as File[];
     const language = formData.get('language') as string;

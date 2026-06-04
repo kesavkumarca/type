@@ -10,10 +10,10 @@ import { supabase } from '@/config/supabase';
 import Link from 'next/link';
 
 interface ProfileData {
-  full_name?: string;
-  mobile_number?: string;
-  date_of_birth?: string;
-  created_at?: string;
+  full_name?: string | null;
+  mobile_number?: string | null;
+  date_of_birth?: string | null;
+  created_at?: string | null;
 }
 
 interface PersonalBests {

@@ -15,11 +15,11 @@ interface LeaderboardData {
 }
 
 interface RawLeaderboardRow {
-  wpm: number;
-  accuracy: number;
+  wpm: number | null;
+  accuracy: number | null;
   user_id: string;
   profiles: {
-    full_name: string;
+    full_name: string | null;
   } | null;
 }
 
@@ -36,8 +36,8 @@ export default function Leaderboard() {
 
     rawLeaderboardData.forEach((row: RawLeaderboardRow) => {
       const userId = row.user_id;
-      const wpm = row.wpm;
-      const accuracy = row.accuracy;
+      const wpm = row.wpm ?? 0;
+      const accuracy = row.accuracy ?? 0;
       const name = row.profiles?.full_name || 'Anonymous Typist';
 
       if (!userBestScores[userId]) {

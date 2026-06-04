@@ -23,9 +23,9 @@ interface GraphData {
 }
 
 interface TestResult {
-  wpm: number;
-  accuracy: number;
-  created_at: string;
+  wpm: number | null;
+  accuracy: number | null;
+  created_at: string | null;
 }
 import { useTheme } from 'next-themes';
 
@@ -64,14 +64,18 @@ export default function Dashboard() {
         if (fetchError) throw fetchError;
 
         if (data && data.length > 0) {
-          const recentData = data.slice(0, 10); // Get last 10 for graph
+          const recentData = data.slice(0, 10).map((result) => ({
+            wpm: result.wpm ?? 0,
+            accuracy: result.accuracy ?? 0,
+            created_at: result.created_at ?? new Date().toISOString(),
+          })); // Get last 10 for graph
 
           const avgWPM = recentData.length > 0 
-            ? recentData.reduce((sum: number, result: TestResult) => sum + result.wpm, 0) / recentData.length
+            ? recentData.reduce((sum, result) => sum + result.wpm, 0) / recentData.length
             : 0;
 
           const avgAccuracy = recentData.length > 0 
-            ? recentData.reduce((sum: number, result: TestResult) => sum + result.accuracy, 0) / recentData.length 
+            ? recentData.reduce((sum, result) => sum + result.accuracy, 0) / recentData.length 
             : 0;
 
           setStats({
@@ -80,7 +84,7 @@ export default function Dashboard() {
             totalTests: data.length, 
           });
 
-          const formattedData = recentData.map((result: TestResult) => {
+          const formattedData = recentData.map((result) => {
             const dateObj = new Date(result.created_at);
             return {
               testDate: dateObj.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }),
