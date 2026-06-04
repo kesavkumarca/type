@@ -166,9 +166,6 @@ function InstituteModule() {
   const [reportCourse, setReportCourse] = useState('');
   const [reportSlot, setReportSlot] = useState('');
 
-  // Course fees state (editable in settings, stored in DB)
-  const [courseFees, setCourseFees] = useState<Record<string, number>>(DEFAULT_COURSE_FEES);
-
   useEffect(() => { loadAllInstituteData(); }, []);
 
   async function loadAllInstituteData() {
@@ -189,10 +186,6 @@ function InstituteModule() {
         // Load holidays from DB settings
         if (s.holidays && Array.isArray(s.holidays)) {
           setHolidays(s.holidays);
-        }
-        // Load course fees from DB settings
-        if (s.course_fees) {
-          setCourseFees({ ...DEFAULT_COURSE_FEES, ...s.course_fees });
         }
       }
     } catch (err: any) {
@@ -268,19 +261,10 @@ function InstituteModule() {
     setHolidays(newHolidays);
     // Persist to DB
     try {
-      await supabase.from('institute_management_settings')
-        .update({ holidays: newHolidays })
-        .eq('id', 1);
+      const { error } = await supabase.from('institute_management_settings')
+        .upsert({ id: 1, holidays: newHolidays });
+      if (error) throw error;
     } catch (err: any) { console.error('Failed to save holidays:', err.message); }
-  }
-
-  async function saveCourseFees(fees: Record<string, number>) {
-    setCourseFees(fees);
-    try {
-      await supabase.from('institute_management_settings')
-        .update({ course_fees: fees })
-        .eq('id', 1);
-    } catch (err: any) { console.error('Failed to save fees:', err.message); }
   }
 
   function getConsecutiveAbsences(studentId: string): number {
@@ -348,9 +332,14 @@ function InstituteModule() {
     return matchSearch && matchCourse && matchSlot && matchStatus;
   });
 
-  function getWorkingDays(year: number, month: number): string[] {
-    const daysInMonth = new Date(year, month, 0).getDate();
-    return Array.from({ length: daysInMonth }, (_, i) =>
+  function getWorkingDays(year: number, month: number, upToToday: boolean = false): string[] {
+    const now = new Date();
+    const isCurrentMonth = now.getFullYear() === year && (now.getMonth() + 1) === month;
+    let daysCount = new Date(year, month, 0).getDate();
+    if (upToToday && isCurrentMonth) {
+      daysCount = now.getDate();
+    }
+    return Array.from({ length: daysCount }, (_, i) =>
       `${year}-${String(month).padStart(2,'0')}-${String(i+1).padStart(2,'0')}`
     ).filter(d => !holidays.includes(d));
   }
@@ -469,21 +458,9 @@ function InstituteModule() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   })();
 
-  const topStudents = activeStudents.map(s => {
-    const [year, month] = thisMonth.split('-').map(Number);
-    const workingDays = getWorkingDays(year, month);
-    const total = workingDays.length || 1;
-    const logs = attendanceLogs.filter(l => {
-      const [ly, lm] = l.attendance_date.split('-').map(Number);
-      return l.student_id === s.id && ly === year && lm === month;
-    });
-    const pct = Math.round(((logs.filter(l => l.status === 'P' || l.status === 'L').length) / total) * 100);
-    return { ...s, pct };
-  }).sort((a, b) => b.pct - a.pct).slice(0, 3);
-
   const lowAttendanceStudents = activeStudents.map(s => {
     const [year, month] = thisMonth.split('-').map(Number);
-    const workingDays = getWorkingDays(year, month);
+    const workingDays = getWorkingDays(year, month, true);
     const total = workingDays.length || 1;
     const logs = attendanceLogs.filter(l => {
       const [ly, lm] = l.attendance_date.split('-').map(Number);
@@ -492,67 +469,6 @@ function InstituteModule() {
     const pct = Math.round(((logs.filter(l => l.status === 'P' || l.status === 'L').length) / total) * 100);
     return { ...s, pct };
   }).filter(s => s.pct < 75 && s.pct > 0);
-
-  // Slot fill rate: per slot per course (active non-flexible students only)
-  const slotFillData = BATCH_SLOTS.filter(s => s !== 'Flexible').flatMap(slot => {
-    return COURSES.filter(c => COURSE_CAPACITY[c] !== undefined).map(course => {
-      const enrolled = activeStudents.filter(s => s.batch_slot === slot && s.course === course).length;
-      const cap = COURSE_CAPACITY[course]!;
-      const pct = Math.round((enrolled / cap) * 100);
-      return { slot: slot.replace(':00 ', ''), course: course.replace('Typewriting - ', 'TW '), enrolled, cap, pct };
-    }).filter(r => r.enrolled > 0);
-  });
-
-  const courseDistribution = COURSES.map(c => ({
-    course: c.replace('Typewriting - ', 'TW '),
-    count: activeStudents.filter(s => s.course === c).length,
-    capacity: COURSE_TOTAL_CAPACITY[c] ?? null,
-  }));
-
-  const courseAvgAttendance = COURSES.map(c => {
-    const courseStudents = activeStudents.filter(s => s.course === c);
-    if (courseStudents.length === 0) return null;
-    const [year, month] = thisMonth.split('-').map(Number);
-    const workingDays = getWorkingDays(year, month);
-    const total = workingDays.length || 1;
-    const avg = courseStudents.reduce((acc, s) => {
-      const logs = attendanceLogs.filter(l => {
-        const [ly, lm] = l.attendance_date.split('-').map(Number);
-        return l.student_id === s.id && ly === year && lm === month;
-      });
-      const pct = Math.round(((logs.filter(l => l.status === 'P' || l.status === 'L').length) / total) * 100);
-      return acc + pct;
-    }, 0) / courseStudents.length;
-    return { course: c.replace('Typewriting - ', 'TW '), avg: Math.round(avg) };
-  }).filter(Boolean) as { course: string; avg: number }[];
-
-  const monthlyTrendData = (() => {
-    const now = new Date();
-    return Array.from({ length: 6 }, (_, i) => {
-      const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
-      const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      const label = d.toLocaleString('en-IN', { month: 'short', year: '2-digit' });
-      const [year, month] = ym.split('-').map(Number);
-      const workingDays = getWorkingDays(year, month);
-      const total = workingDays.length || 1;
-      const studentsWithData = activeStudents.filter(s =>
-        attendanceLogs.some(l => {
-          const [ly, lm] = l.attendance_date.split('-').map(Number);
-          return l.student_id === s.id && ly === year && lm === month;
-        })
-      );
-      if (studentsWithData.length === 0) return { label, avg: 0 };
-      const avg = studentsWithData.reduce((acc, s) => {
-        const logs = attendanceLogs.filter(l => {
-          const [ly, lm] = l.attendance_date.split('-').map(Number);
-          return l.student_id === s.id && ly === year && lm === month;
-        });
-        const pct = Math.round(((logs.filter(l => l.status === 'P' || l.status === 'L').length) / total) * 100);
-        return acc + pct;
-      }, 0) / studentsWithData.length;
-      return { label, avg: Math.round(avg) };
-    });
-  })();
 
   const monthlyGrowthData = (() => {
     const now = new Date();
@@ -567,14 +483,6 @@ function InstituteModule() {
   })();
 
   // ── NEW ANALYTICS ──
-
-  // 1. Revenue Estimator
-  const revenueData = COURSES.map(c => {
-    const enrolled = activeStudents.filter(s => s.course === c).length;
-    const fee = courseFees[c] || 0;
-    return { course: c.replace('Typewriting - ', 'TW '), enrolled, fee, revenue: enrolled * fee };
-  }).filter(r => r.enrolled > 0);
-  const totalProjectedRevenue = revenueData.reduce((sum, r) => sum + r.revenue, 0);
 
   // 2. Retention Rate: students joined 3+ months ago still active
   const threeMonthsAgo = new Date();
@@ -595,7 +503,7 @@ function InstituteModule() {
       const day = i + 1;
       const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
       const isHoliday = holidays.includes(dateStr);
-      const isFuture = new Date(dateStr) > now;
+      const isFuture = dateStr > todayISO();
       const dayLogs = attendanceLogs.filter(l => l.attendance_date === dateStr);
       const present = dayLogs.filter(l => l.status === 'P' || l.status === 'L').length;
       const total = dayLogs.length;
@@ -652,49 +560,6 @@ function InstituteModule() {
                 <div className="text-slate-400 text-xs mt-1 font-medium">{card.label}</div>
               </div>
             ))}
-          </div>
-
-          {/* ── Revenue Estimator ── */}
-          <div className="bg-white/5 border border-white/10 rounded-xl p-5">
-            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-              <h3 className="text-white font-bold text-sm">💰 Projected Monthly Revenue</h3>
-              <div className="text-emerald-400 font-extrabold text-lg">₹{totalProjectedRevenue.toLocaleString('en-IN')}</div>
-            </div>
-            <div className="space-y-2">
-              {revenueData.map(r => (
-                <div key={r.course} className="flex items-center gap-3 text-sm">
-                  <span className="text-slate-400 w-36 shrink-0 text-xs">{r.course}</span>
-                  <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full"
-                      style={{ width: `${Math.min((r.revenue / totalProjectedRevenue) * 100, 100)}%` }} />
-                  </div>
-                  <span className="text-white font-bold text-xs w-20 text-right">
-                    {r.enrolled} × ₹{r.fee} = <span className="text-emerald-400">₹{r.revenue.toLocaleString('en-IN')}</span>
-                  </span>
-                </div>
-              ))}
-            </div>
-            <p className="text-slate-500 text-xs mt-3">Fee per course editable below ↓ in Fee Settings.</p>
-          </div>
-
-          {/* ── Fee Settings (inline, no separate settings tab) ── */}
-          <div className="bg-white/5 border border-white/10 rounded-xl p-5">
-            <h3 className="text-white font-bold text-sm mb-4">⚙️ Monthly Fee per Course (₹)</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-              {COURSES.map(c => (
-                <div key={c}>
-                  <label className="text-xs text-slate-400 mb-1 block">{c.replace('Typewriting - ', 'TW ')}</label>
-                  <input
-                    type="number"
-                    value={courseFees[c] || ''}
-                    onChange={e => setCourseFees(prev => ({ ...prev, [c]: Number(e.target.value) }))}
-                    onBlur={() => saveCourseFees(courseFees)}
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-              ))}
-            </div>
-            <p className="text-slate-500 text-xs mt-2">Changes auto-save on blur.</p>
           </div>
 
           {/* ── Retention Rate ── */}
@@ -788,28 +653,6 @@ function InstituteModule() {
             </div>
           )}
 
-          {/* ── Slot Fill Rate Gauge ── */}
-          {slotFillData.length > 0 && (
-            <div className="bg-white/5 border border-white/10 rounded-xl p-5">
-              <h3 className="text-white font-bold text-sm mb-4">⏰ Slot Fill Rate (per-slot capacity)</h3>
-              <div className="space-y-2">
-                {slotFillData.map((r, i) => (
-                  <div key={i} className="flex items-center gap-3 text-xs">
-                    <span className="text-slate-400 w-28 shrink-0">{r.slot} {r.course}</span>
-                    <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
-                      <div className={`h-full rounded-full transition-all ${r.pct >= 100 ? 'bg-red-500' : r.pct >= 85 ? 'bg-amber-500' : 'bg-indigo-500'}`}
-                        style={{ width: `${Math.min(r.pct, 100)}%` }} />
-                    </div>
-                    <span className={`font-bold w-16 text-right ${r.pct >= 100 ? 'text-red-400' : r.pct >= 85 ? 'text-amber-400' : 'text-indigo-300'}`}>
-                      {r.enrolled}/{r.cap} ({r.pct}%)
-                    </span>
-                  </div>
-                ))}
-              </div>
-              <p className="text-slate-500 text-xs mt-2">Red = full · Amber = &gt;85% · Only slots with enrolled students shown</p>
-            </div>
-          )}
-
           {flaggedStudents.length > 0 && (
             <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-5">
               <h3 className="text-red-400 font-bold text-sm mb-3">🚨 Consecutive Absence Alert (3+ days)</h3>
@@ -841,82 +684,6 @@ function InstituteModule() {
               </div>
             </div>
           )}
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white/5 border border-white/10 rounded-xl p-5">
-              <h3 className="text-white font-bold mb-4 text-sm">🏆 Top Attendance — This Month</h3>
-              {topStudents.length === 0 ? <p className="text-slate-500 text-sm">No attendance data yet.</p> : (
-                <div className="space-y-3">
-                  {topStudents.map((s, i) => (
-                    <div key={s.id} className="flex items-center gap-3">
-                      <span className={`text-lg font-extrabold ${i === 0 ? 'text-yellow-400' : i === 1 ? 'text-slate-300' : 'text-orange-400'}`}>#{i + 1}</span>
-                      <div className="flex-1">
-                        <div className="flex justify-between text-sm mb-1">
-                          <span className="font-semibold text-white">{s.full_name}</span>
-                          <span className="text-emerald-400 font-bold">{s.pct}%</span>
-                        </div>
-                        <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-                          <div className="h-full bg-gradient-to-r from-indigo-500 to-emerald-500 rounded-full" style={{ width: `${s.pct}%` }} />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="bg-white/5 border border-white/10 rounded-xl p-5">
-              <h3 className="text-white font-bold mb-4 text-sm">📚 Course-wise Avg Attendance % — This Month</h3>
-              <div className="h-44">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={courseAvgAttendance} barSize={22}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#2a324b" />
-                    <XAxis dataKey="course" stroke="#94a3b8" tick={{ fontSize: 10 }} />
-                    <YAxis stroke="#94a3b8" domain={[0, 100]} tick={{ fontSize: 10 }} unit="%" />
-                    <Tooltip contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '8px' }} formatter={(v: any) => [`${v}%`, 'Avg Attendance']} />
-                    <Bar dataKey="avg" name="Avg %" radius={[4, 4, 0, 0]}>
-                      {courseAvgAttendance.map((entry, idx) => (
-                        <Cell key={idx} fill={entry.avg < 75 ? '#f59e0b' : '#10b981'} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white/5 border border-white/10 rounded-xl p-5">
-            <h3 className="text-white font-bold mb-4 text-sm">📋 Course Enrollment vs Total Capacity</h3>
-            <div className="h-52">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={courseDistribution} barGap={4}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#2a324b" />
-                  <XAxis dataKey="course" stroke="#94a3b8" tick={{ fontSize: 10 }} />
-                  <YAxis stroke="#94a3b8" allowDecimals={false} tick={{ fontSize: 10 }} />
-                  <Tooltip contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '8px' }} />
-                  <Legend wrapperStyle={{ fontSize: '11px', color: '#94a3b8' }} />
-                  <Bar dataKey="count" name="Enrolled" fill="#6366f1" radius={[4, 4, 0, 0]} barSize={18} />
-                  <Bar dataKey="capacity" name="Total Capacity" fill="#374151" radius={[4, 4, 0, 0]} barSize={18} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <p className="text-slate-500 text-xs mt-2">Shorthand has no capacity limit. Capacity = all slots combined.</p>
-          </div>
-
-          <div className="bg-white/5 border border-white/10 rounded-xl p-5">
-            <h3 className="text-white font-bold mb-4 text-sm">📈 Monthly Attendance Trend — Last 6 Months</h3>
-            <div className="h-48">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={monthlyTrendData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#2a324b" />
-                  <XAxis dataKey="label" stroke="#94a3b8" tick={{ fontSize: 11 }} />
-                  <YAxis stroke="#94a3b8" domain={[0, 100]} tick={{ fontSize: 11 }} unit="%" />
-                  <Tooltip contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '8px' }} formatter={(v: any) => [`${v}%`, 'Avg Attendance']} />
-                  <Line type="monotone" dataKey="avg" stroke="#818cf8" strokeWidth={3} dot={{ fill: '#818cf8', r: 4 }} name="Avg %" />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
 
           <div className="bg-white/5 border border-white/10 rounded-xl p-5">
             <h3 className="text-white font-bold mb-4 text-sm">📊 Student Growth — Last 6 Months</h3>
