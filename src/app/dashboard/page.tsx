@@ -1,7 +1,5 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
-
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
@@ -22,7 +20,14 @@ interface GraphData {
   testDate: string;
   wpm: number;
   accuracy: number;
-}import { useTheme } from 'next-themes';
+}
+
+interface TestResult {
+  wpm: number;
+  accuracy: number;
+  created_at: string;
+}
+import { useTheme } from 'next-themes';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -35,6 +40,7 @@ export default function Dashboard() {
   });
   const [graphData, setGraphData] = useState<GraphData[]>([]);
   const [statsLoading, setStatsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -47,23 +53,25 @@ export default function Dashboard() {
       if (!user) return;
 
       try {
-        const { data, error } = await supabase
+        setError(null);
+        const { data, error: fetchError } = await supabase
           .from('test_results')
           .select('wpm, accuracy, created_at')
           .eq('user_id', user.id)
-          .order('created_at', { ascending: true });
+          .order('created_at', { ascending: false })
+          .limit(100); // Limit to last 100 tests for performance
 
-        if (error) throw error;
+        if (fetchError) throw fetchError;
 
         if (data && data.length > 0) {
-          const recentData = data.slice(-10);
+          const recentData = data.slice(0, 10); // Get last 10 for graph
 
           const avgWPM = recentData.length > 0 
-            ? recentData.reduce((sum: number, result: any) => sum + result.wpm, 0) / recentData.length
+            ? recentData.reduce((sum: number, result: TestResult) => sum + result.wpm, 0) / recentData.length
             : 0;
 
           const avgAccuracy = recentData.length > 0 
-            ? recentData.reduce((sum: number, result: any) => sum + result.accuracy, 0) / recentData.length 
+            ? recentData.reduce((sum: number, result: TestResult) => sum + result.accuracy, 0) / recentData.length 
             : 0;
 
           setStats({
@@ -72,7 +80,7 @@ export default function Dashboard() {
             totalTests: data.length, 
           });
 
-          const formattedData = recentData.map((result: any) => {
+          const formattedData = recentData.map((result: TestResult) => {
             const dateObj = new Date(result.created_at);
             return {
               testDate: dateObj.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }),
@@ -81,10 +89,11 @@ export default function Dashboard() {
             };
           });
 
-          setGraphData(formattedData);
+          setGraphData(formattedData.reverse()); // Reverse for chronological order in chart
         }
       } catch (err) {
         console.error('Error fetching stats:', err);
+        setError('Failed to load statistics');
       } finally {
         setStatsLoading(false);
       }
@@ -114,6 +123,12 @@ export default function Dashboard() {
 
         <div className="max-w-6xl mx-auto px-4 py-12">
           
+          {error && (
+            <div className="mb-8 p-4 bg-red-500/10 border border-red-500/30 rounded-2xl text-red-400 text-sm">
+              ⚠️ {error}
+            </div>
+          )}
+
           <div className="bg-zinc-50 dark:bg-white/5 backdrop-blur-xl border border-zinc-200 dark:border-white/10 rounded-2xl p-8 mb-8 shadow-2xl transition-colors duration-300">
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div>

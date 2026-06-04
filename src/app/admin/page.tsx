@@ -1,8 +1,6 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
-
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, useState, Suspense, useMemo, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Navbar from '@/components/Navbar';
@@ -10,7 +8,7 @@ import { supabase } from '@/config/supabase';
 
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  BarChart, Bar, Cell, Legend
+  Legend
 } from 'recharts';
 
 // ─────────────────────────────────────────────
@@ -31,7 +29,7 @@ interface TestResult { user_id: string; wpm: number; accuracy: number; created_a
 function AdminPanelContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, isAdmin, loading } = useAuth();
+  const { isAdmin, loading } = useAuth();
 
   const [activeTab, setActiveTab] = useState<'students' | 'passages'>('students');
   const [searchQuery, setSearchQuery] = useState('');
@@ -61,53 +59,81 @@ function AdminPanelContent() {
     if (loading === false && isAdmin === false) router.push('/dashboard');
   }, [isAdmin, loading, router]);
 
-  const fetchPassages = async () => {
+  const fetchPassages = useCallback(async () => {
     try {
       setLoadingPassages(true);
-      const { data, error: fetchError } = await supabase.from('passages').select('id, text, language, level, created_at').order('created_at', { ascending: false });
+      const { data, error: fetchError } = await supabase
+        .from('passages')
+        .select('id, text, language, level, created_at', { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .limit(50);
       if (fetchError) throw fetchError;
       setPassages((data as Passage[]) || []);
-    } catch (err) { console.error('Error loading passages:', err); }
+    } catch (err) { 
+      console.error('Error loading passages:', err);
+      setError('Failed to load passages');
+    }
     finally { setLoadingPassages(false); }
-  };
+  }, []);
 
-  const fetchStudentTelemetry = async () => {
+  const fetchStudentTelemetry = useCallback(async () => {
     try {
       setLoadingStudents(true);
-      const { data: profilesData, error: profilesError } = await supabase.from('profiles').select('id, full_name, email, created_at').order('created_at', { ascending: false });
+      // Fetch students with pagination
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, created_at')
+        .order('created_at', { ascending: false })
+        .limit(50);
       if (profilesError) throw profilesError;
       const typedProfiles = (profilesData as StudentProfile[]) || [];
       setStudents(typedProfiles);
-      const { data: testsData, error: testsError } = await supabase.from('test_results').select('user_id, wpm, accuracy, created_at').order('created_at', { ascending: true });
-      if (testsError) throw testsError;
-      const typedTests = (testsData as TestResult[]) || [];
-      setAllTestResults(typedTests);
-      const userAggregates: Record<string, { sumWpm: number; sumAcc: number; count: number }> = {};
-      typedTests.forEach(test => {
-        if (!test.user_id || test.wpm <= 0) return;
-        if (!userAggregates[test.user_id]) userAggregates[test.user_id] = { sumWpm: 0, sumAcc: 0, count: 0 };
-        userAggregates[test.user_id].sumWpm += test.wpm;
-        userAggregates[test.user_id].sumAcc += test.accuracy;
-        userAggregates[test.user_id].count += 1;
-      });
-      const finalMap: Record<string, TestMetrics> = {};
-      typedProfiles.forEach(profile => {
-        if (!profile.id) return;
-        const stats = userAggregates[profile.id];
-        finalMap[profile.id] = {
-          total_tests: stats ? stats.count : 0,
-          avg_wpm: stats && stats.count > 0 ? Math.round(stats.sumWpm / stats.count) : 0,
-          avg_accuracy: stats && stats.count > 0 ? Math.round(stats.sumAcc / stats.count) : 0,
-        };
-      });
-      setMetricsMap(finalMap);
-    } catch (err) { console.error('Error loading student metrics:', err); }
+      
+      // Fetch test results for current students only
+      if (typedProfiles.length > 0) {
+        const userIds = typedProfiles.map(p => p.id);
+        const { data: testsData, error: testsError } = await supabase
+          .from('test_results')
+          .select('user_id, wpm, accuracy, created_at')
+          .in('user_id', userIds);
+        if (testsError) throw testsError;
+        const typedTests = (testsData as TestResult[]) || [];
+        setAllTestResults(typedTests);
+        
+        // Memoized aggregation
+        const userAggregates: Record<string, { sumWpm: number; sumAcc: number; count: number }> = {};
+        typedTests.forEach(test => {
+          if (!test.user_id || test.wpm <= 0) return;
+          if (!userAggregates[test.user_id]) userAggregates[test.user_id] = { sumWpm: 0, sumAcc: 0, count: 0 };
+          userAggregates[test.user_id].sumWpm += test.wpm;
+          userAggregates[test.user_id].sumAcc += test.accuracy;
+          userAggregates[test.user_id].count += 1;
+        });
+        const finalMap: Record<string, TestMetrics> = {};
+        typedProfiles.forEach(profile => {
+          if (!profile.id) return;
+          const stats = userAggregates[profile.id];
+          finalMap[profile.id] = {
+            total_tests: stats ? stats.count : 0,
+            avg_wpm: stats && stats.count > 0 ? Math.round(stats.sumWpm / stats.count) : 0,
+            avg_accuracy: stats && stats.count > 0 ? Math.round(stats.sumAcc / stats.count) : 0,
+          };
+        });
+        setMetricsMap(finalMap);
+      }
+    } catch (err) { 
+      console.error('Error loading student metrics:', err);
+      setError('Failed to load student data');
+    }
     finally { setLoadingStudents(false); }
-  };
+  }, []);
 
   useEffect(() => {
-    if (loading === false && isAdmin === true) { fetchPassages(); fetchStudentTelemetry(); }
-  }, [isAdmin, loading]);
+    if (loading === false && isAdmin === true) { 
+      fetchPassages(); 
+      fetchStudentTelemetry(); 
+    }
+  }, [isAdmin, loading, fetchPassages, fetchStudentTelemetry]);
 
   const handleSelectStudent = (student: StudentProfile) => {
     setSelectedStudent(student);
@@ -135,7 +161,10 @@ function AdminPanelContent() {
       if (!response.ok) throw new Error(result.error || 'Failed to parse PDF.');
       setSuccess('🎉 PDF parsed and saved!');
       setTitle(''); setFile(null); fetchPassages();
-    } catch (err: any) { setError(err.message || 'Failed to upload PDF passage'); }
+    } catch (err) { 
+      const errorMsg = err instanceof Error ? err.message : 'Failed to upload PDF passage';
+      setError(errorMsg); 
+    }
     finally { setUploading(false); }
   };
 
@@ -145,9 +174,12 @@ function AdminPanelContent() {
     fetchPassages();
   };
 
-  const filteredStudents = students.filter(s =>
-    (s.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.email?.toLowerCase().includes(searchQuery.toLowerCase()))
+  const filteredStudents = useMemo(() => 
+    students.filter(s =>
+      (s.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        s.email?.toLowerCase().includes(searchQuery.toLowerCase()))
+    ),
+    [students, searchQuery]
   );
 
   if (loading) return (
