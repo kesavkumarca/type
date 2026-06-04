@@ -73,7 +73,7 @@ export default function TypingTest() {
           setPassage(null);
         }
 
-        // 2. ✅ Fetch student profile name safely casted to bypass compilation limits
+        // 2. ✅ Fetch student profile name safely with an inline type assertion to bypass type 'never' checks
         if (user) {
           const { data: profileData, error: profileError } = await supabase
             .from('profiles')
@@ -174,7 +174,8 @@ export default function TypingTest() {
     const metrics = { wpm, accuracy, strokes, correctWords, mistakes, marks, passed, deductionPerMistake };
 
     try {
-      const { error } = await supabase.from('test_results').insert([
+      // ✅ Explicitly passed generic typing context to Supabase client to prevent 'never[]' assignment compilation blocks
+      const { error } = await supabase.from<any, any>('test_results').insert([
         {
           user_id: user.id,
           passage_id: passage.id,
