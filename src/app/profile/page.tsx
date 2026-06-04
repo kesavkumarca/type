@@ -2,12 +2,13 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useEffect, useState } from 'react';
-import { useAuth } from '@/context/AuthContext';
+import { FormEvent, useEffect, useState } from 'react';
+import Link from 'next/link';
+import { Calendar, CheckCircle2, Mail, Phone, Save, User, AlertCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
+import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/config/supabase';
-import Link from 'next/link';
 
 interface ProfileData {
   full_name?: string | null;
@@ -23,16 +24,28 @@ interface PersonalBests {
   avg_marks: number;
 }
 
+interface ProfileForm {
+  full_name: string;
+  mobile_number: string;
+  date_of_birth: string;
+}
+
 export default function Profile() {
   const router = useRouter();
-  const { user, loading } = useAuth();
+  const { user, loading, refreshProfile } = useAuth();
 
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
+  const [form, setForm] = useState<ProfileForm>({
+    full_name: '',
+    mobile_number: '',
+    date_of_birth: '',
+  });
   const [stats, setStats] = useState<PersonalBests>({ best_wpm: 0, best_accuracy: 0, tests_taken: 0, avg_marks: 0 });
   const [fetchingProfile, setFetchingProfile] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const formatToDDMMYYYY = (dateString: string) => {
-    if (!dateString) return 'Not Available';
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return 'Not Available';
 
@@ -60,7 +73,13 @@ export default function Profile() {
           .single();
 
         if (profileError) throw profileError;
+
         setProfileData(profile);
+        setForm({
+          full_name: profile.full_name ?? '',
+          mobile_number: profile.mobile_number ?? '',
+          date_of_birth: profile.date_of_birth ?? '',
+        });
 
         const { data: testResults, error: testError } = await supabase
           .from('test_results')
@@ -70,22 +89,19 @@ export default function Profile() {
         if (testError) throw testError;
 
         if (testResults && testResults.length > 0) {
-          const validWpms: number[] = testResults.map((t: any) => Number(t.wpm)).filter((w: number) => w > 0);
-          const validAccs = testResults.map((t: any) => Number(t.accuracy)).filter((a: number) => a > 0);
-
-          const maxWpm = Math.max(...(validWpms.length > 0 ? validWpms : [0]));
-          const maxAccuracy = Math.max(...(validAccs.length > 0 ? validAccs : [0]));
+          const validWpms = testResults.map((t) => Number(t.wpm)).filter((w) => w > 0);
+          const validAccs = testResults.map((t) => Number(t.accuracy)).filter((a) => a > 0);
 
           setStats({
-            best_wpm: maxWpm,
-            best_accuracy: maxAccuracy,
+            best_wpm: Math.max(...(validWpms.length > 0 ? validWpms : [0])),
+            best_accuracy: Math.max(...(validAccs.length > 0 ? validAccs : [0])),
             tests_taken: testResults.length,
-            avg_marks: 0
+            avg_marks: 0,
           });
         }
-
       } catch (err) {
         console.error('Error fetching profile data:', err);
+        setStatus({ type: 'error', message: 'Failed to load profile details.' });
       } finally {
         setFetchingProfile(false);
       }
@@ -96,141 +112,183 @@ export default function Profile() {
     }
   }, [user, loading, router]);
 
-  const getInitial = () => {
-    if (profileData?.full_name) return profileData.full_name.trim().charAt(0).toUpperCase();
-    if (user?.email) return user.email.trim().charAt(0).toUpperCase();
-    return 'T';
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!user) return;
+
+    const fullName = form.full_name.trim();
+    const mobileNumber = form.mobile_number.trim();
+
+    if (!fullName) {
+      setStatus({ type: 'error', message: 'Full name is required.' });
+      return;
+    }
+
+    try {
+      setSaving(true);
+      setStatus(null);
+
+      const updatedProfile = {
+        full_name: fullName,
+        mobile_number: mobileNumber || null,
+        date_of_birth: form.date_of_birth || null,
+      };
+
+      const { error } = await supabase
+        .from('profiles')
+        .update(updatedProfile)
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      setProfileData((current) => ({ ...current, ...updatedProfile }));
+      setForm({
+        full_name: updatedProfile.full_name,
+        mobile_number: updatedProfile.mobile_number ?? '',
+        date_of_birth: updatedProfile.date_of_birth ?? '',
+      });
+      await refreshProfile();
+      setStatus({ type: 'success', message: 'Profile changes saved.' });
+    } catch (err) {
+      console.error('Error updating profile:', err);
+      setStatus({ type: 'error', message: 'Could not save profile changes.' });
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading || fetchingProfile) {
     return (
       <div className="min-h-screen bg-[#0b0f19] flex items-center justify-center">
-        <div className="text-xl text-slate-400 animate-pulse">Loading profile vault...</div>
+        <div className="text-xl text-slate-400 animate-pulse">Loading profile...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#0b0f19] text-white relative overflow-hidden">
-      <div className="absolute top-0 -left-1/4 w-96 h-96 bg-indigo-600 rounded-full filter blur-[120px] opacity-20 pointer-events-none" />
-      <div className="absolute bottom-0 -right-1/4 w-96 h-96 bg-emerald-600 rounded-full filter blur-[120px] opacity-10 pointer-events-none" />
+    <div className="min-h-screen bg-[#0b0f19] text-white">
+      <Navbar />
 
-      <div className="relative z-10">
-        <Navbar />
-
-        <div className="max-w-4xl mx-auto px-4 py-12 space-y-8">
-
-          {/* ✅ SECTION 1: Centered Profile & Compact Metrics Stack */}
-          <div className="flex flex-col md:flex-row gap-8 justify-center items-center w-full">
-
-            {/* User Details Mini Profile Card (h-fit stops stretching) */}
-            <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-2xl flex flex-col items-center justify-center text-center h-fit w-full md:w-[280px]">
-              <div className="w-16 h-16 bg-gradient-to-tr from-indigo-600 to-purple-500 rounded-full flex items-center justify-center text-3xl font-extrabold text-white shadow-xl mb-3 border-2 border-white/20 tracking-tight">
-                {getInitial()}
-              </div>
-
-              <h2 className="text-lg font-bold text-white mb-1">
-                {profileData?.full_name || 'Anonymous Typist'}
-              </h2>
-              <p className="text-xs text-slate-400 mb-3 truncate w-full max-w-[180px]">{user?.email}</p>
-
-              <div className="w-full h-px bg-white/10 my-3" />
-
-              <div className="grid grid-cols-2 w-full gap-2">
-                <div className="text-center">
-                  <p className="text-lg font-extrabold text-white">{stats.tests_taken}</p>
-                  <p className="text-[10px] text-slate-400 uppercase tracking-wider">Tests Taken</p>
-                </div>
-                <div className="text-center border-l border-white/10">
-                  <p className="text-lg font-extrabold text-emerald-400">{stats.best_wpm}</p>
-                  <p className="text-[10px] text-slate-400 uppercase tracking-wider">Top Speed</p>
-                </div>
-              </div>
-            </div>
-
-            {/* ✅ Compact Metric Stack: w-fit hugging text content side-by-side with Profile */}
-            <div className="flex flex-col gap-4 items-start h-fit">
-
-              {/* Personal Best Speed Card */}
-              <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-2xl p-5 shadow-2xl border border-white/20 relative overflow-hidden group w-fit h-fit flex flex-col justify-center">
-                <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-white/10 rounded-full filter blur-xl group-hover:bg-white/20 transition-all duration-300" />
-                <span className="text-xs font-semibold uppercase text-indigo-200 tracking-wider mb-2 block whitespace-nowrap">Personal Best Speed</span>
-                <div className="flex items-baseline gap-2">
-                  <p className="text-4xl font-extrabold text-white">{stats.best_wpm}</p>
-                  <p className="text-xs font-bold text-indigo-200">WPM</p>
-                </div>
-              </div>
-
-              {/* Personal Best Accuracy Card */}
-              <div className="bg-gradient-to-br from-emerald-600 to-emerald-800 rounded-2xl p-5 shadow-2xl border border-white/20 relative overflow-hidden group w-fit h-fit flex flex-col justify-center">
-                <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-white/10 rounded-full filter blur-xl group-hover:bg-white/20 transition-all duration-300" />
-                <span className="text-xs font-semibold uppercase text-emerald-200 tracking-wider mb-2 block whitespace-nowrap">Personal Best Accuracy</span>
-                <div className="flex items-baseline gap-2">
-                  <p className="text-4xl font-extrabold text-white">{stats.best_accuracy}</p>
-                  <p className="text-xs font-bold text-emerald-200">%</p>
-                </div>
-              </div>
-
-            </div>
-
+      <main className="mx-auto grid max-w-6xl grid-cols-1 gap-8 px-4 py-10 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <section className="rounded-2xl border border-indigo-500/30 bg-slate-950/80 p-6 shadow-2xl shadow-indigo-950/30 md:p-8">
+          <div className="mb-7 border-b border-white/10 pb-6">
+            <p className="mb-2 text-xs font-bold uppercase tracking-wider text-indigo-300">Student Profile Details</p>
+            <h1 className="text-3xl font-extrabold text-white">Manage Your Account</h1>
+            <p className="mt-2 text-sm text-slate-400">Update the details used for certificates, dashboard records, and admin verification.</p>
           </div>
 
-          {/* SECTION 2: System Parameters Grid (Full Width) */}
-          <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl">
-            <div className="mb-6">
-              <span className="text-xs font-semibold tracking-wider text-indigo-400 uppercase mb-1 block">
-                Identity Records
-              </span>
-              <h3 className="text-2xl font-bold text-white">System Parameters</h3>
+          {status && (
+            <div className={`mb-6 flex items-center gap-3 rounded-lg border px-4 py-3 text-sm ${
+              status.type === 'success'
+                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'
+                : 'border-red-500/30 bg-red-500/10 text-red-200'
+            }`}>
+              {status.type === 'success' ? <CheckCircle2 className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}
+              {status.message}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">Email Address</label>
+              <div className="flex items-center gap-3 rounded-lg border border-white/10 bg-slate-900/80 px-4 py-3 text-slate-400">
+                <Mail className="h-5 w-5 text-slate-500" />
+                <input value={user?.email ?? ''} readOnly className="w-full bg-transparent text-sm outline-none" />
+              </div>
+              <p className="mt-2 text-xs text-slate-500">Email is your account ID and cannot be changed here.</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-white/5 p-5 rounded-xl border border-white/5 hover:bg-white/10 transition-all duration-300">
-                <label className="block text-xs font-medium uppercase tracking-wider text-slate-400 mb-1">Mobile Access</label>
-                <p className="text-lg font-bold text-indigo-300">
-                  {profileData?.mobile_number || 'Not Available'}
-                </p>
-              </div>
-
-              <div className="bg-white/5 p-5 rounded-xl border border-white/5 hover:bg-white/10 transition-all duration-300">
-                <label className="block text-xs font-medium uppercase tracking-wider text-slate-400 mb-1">Lifetime Avg Marks</label>
-                <p className="text-lg font-bold text-emerald-400">
-                  {stats.avg_marks}
-                </p>
-              </div>
-
-              <div className="bg-white/5 p-5 rounded-xl border border-white/5 hover:bg-white/10 transition-all duration-300">
-                <label className="block text-xs font-medium uppercase tracking-wider text-slate-400 mb-1">Date of Birth</label>
-                <p className="text-lg font-bold text-white">
-                  {profileData?.date_of_birth
-                    ? formatToDDMMYYYY(profileData.date_of_birth)
-                    : 'Not Available'}
-                </p>
-              </div>
-
-              <div className="bg-white/5 p-5 rounded-xl border border-white/5 hover:bg-white/10 transition-all duration-300">
-                <label className="block text-xs font-medium uppercase tracking-wider text-slate-400 mb-1">Member Since</label>
-                <p className="text-lg font-bold text-white">
-                  {profileData?.created_at
-                    ? formatToDDMMYYYY(profileData.created_at)
-                    : 'Not Available'}
-                </p>
+            <div>
+              <label htmlFor="full_name" className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">Full Name</label>
+              <div className="flex items-center gap-3 rounded-lg border border-white/10 bg-slate-900/80 px-4 py-3 focus-within:border-indigo-400">
+                <User className="h-5 w-5 text-slate-500" />
+                <input
+                  id="full_name"
+                  value={form.full_name}
+                  onChange={(event) => setForm((current) => ({ ...current, full_name: event.target.value }))}
+                  className="w-full bg-transparent text-sm font-semibold text-white outline-none"
+                  placeholder="Enter your full name"
+                />
               </div>
             </div>
 
-            <div className="mt-8 flex flex-col sm:flex-row gap-4 pt-4 border-t border-white/10">
-              <Link
-                href="/dashboard"
-                className="group bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-xl font-bold text-center transition-all duration-300 flex items-center justify-center gap-2 border border-white/10 w-full"
-              >
-                Back to Dashboard
-                <span className="group-hover:translate-x-1 transition-transform">→</span>
-              </Link>
+            <div>
+              <label htmlFor="mobile_number" className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">Mobile Number</label>
+              <div className="flex items-center gap-3 rounded-lg border border-white/10 bg-slate-900/80 px-4 py-3 focus-within:border-indigo-400">
+                <Phone className="h-5 w-5 text-slate-500" />
+                <input
+                  id="mobile_number"
+                  value={form.mobile_number}
+                  onChange={(event) => setForm((current) => ({ ...current, mobile_number: event.target.value }))}
+                  className="w-full bg-transparent text-sm font-semibold text-white outline-none"
+                  inputMode="tel"
+                  placeholder="Enter your mobile number"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="date_of_birth" className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">Date of Birth</label>
+              <div className="flex items-center gap-3 rounded-lg border border-white/10 bg-slate-900/80 px-4 py-3 focus-within:border-indigo-400">
+                <Calendar className="h-5 w-5 text-slate-500" />
+                <input
+                  id="date_of_birth"
+                  type="date"
+                  value={form.date_of_birth}
+                  onChange={(event) => setForm((current) => ({ ...current, date_of_birth: event.target.value }))}
+                  className="w-full bg-transparent text-sm font-semibold text-white outline-none [color-scheme:dark]"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-500 px-5 py-3 text-sm font-extrabold text-white shadow-lg shadow-indigo-950/40 transition hover:from-indigo-400 hover:to-purple-400 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Save className="h-5 w-5" />
+              {saving ? 'Saving Changes...' : 'Save Profile Changes'}
+            </button>
+          </form>
+        </section>
+
+        <aside className="space-y-5">
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Current Record</p>
+            <h2 className="mt-2 text-xl font-extrabold">{profileData?.full_name || 'Anonymous Typist'}</h2>
+            <p className="mt-1 truncate text-sm text-slate-400">{user?.email}</p>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <div className="rounded-lg bg-white/5 p-4">
+                <p className="text-2xl font-extrabold text-indigo-300">{stats.tests_taken}</p>
+                <p className="text-xs uppercase text-slate-500">Tests</p>
+              </div>
+              <div className="rounded-lg bg-white/5 p-4">
+                <p className="text-2xl font-extrabold text-emerald-300">{stats.best_wpm}</p>
+                <p className="text-xs uppercase text-slate-500">Best WPM</p>
+              </div>
             </div>
           </div>
 
-        </div>
-      </div>
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Personal Best Accuracy</p>
+            <p className="mt-3 text-5xl font-extrabold text-emerald-300">{stats.best_accuracy}%</p>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Member Since</p>
+            <p className="mt-3 text-lg font-bold">
+              {profileData?.created_at ? formatToDDMMYYYY(profileData.created_at) : 'Not Available'}
+            </p>
+          </div>
+
+          <Link
+            href="/dashboard"
+            className="block rounded-lg border border-white/10 bg-white/10 px-5 py-3 text-center text-sm font-bold text-white transition hover:bg-white/15"
+          >
+            Back to Dashboard
+          </Link>
+        </aside>
+      </main>
     </div>
   );
 }

@@ -18,6 +18,7 @@ interface AuthContextType {
   profile: UserProfile | null;
   isAdmin: boolean;
   loading: boolean;
+  refreshProfile: () => Promise<void>;
   signUp: (email: string, password: string, fullName: string, mobileNumber: string, dateOfBirth: string) => Promise<void>;
   logIn: (email: string, password: string) => Promise<void>;
   logOut: () => Promise<void>;
@@ -42,6 +43,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (profileData) setProfile(profileData);
     } catch (error) {
       console.error('Error fetching profile:', error);
+    }
+  };
+
+  const refreshProfile = async () => {
+    if (user?.id) {
+      await fetchProfile(user.id);
     }
   };
 
@@ -148,6 +155,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         profile,
         isAdmin,
         loading,
+        refreshProfile,
         signUp,
         logIn,
         logOut,
