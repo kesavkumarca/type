@@ -159,22 +159,27 @@ export default function Profile() {
 
   if (loading || fetchingProfile) {
     return (
-      <div className="min-h-screen bg-[#0b0f19] flex items-center justify-center">
-        <div className="text-xl text-slate-400 animate-pulse">Loading profile...</div>
+      <div className="min-h-screen bg-zinc-50 dark:bg-[#0b0f19] flex items-center justify-center transition-colors duration-300">
+        <div className="text-xl text-zinc-500 dark:text-slate-400 animate-pulse">Loading profile...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#0b0f19] text-white">
-      <Navbar />
+    <div className="min-h-screen bg-zinc-50 dark:bg-[#0b0f19] text-zinc-900 dark:text-white relative overflow-hidden transition-colors duration-300">
+      <div className="absolute top-0 -left-1/4 w-96 h-96 bg-indigo-600 rounded-full filter blur-[120px] opacity-10 dark:opacity-20 pointer-events-none" />
+      <div className="absolute bottom-0 -right-1/4 w-96 h-96 bg-emerald-600 rounded-full filter blur-[120px] opacity-10 dark:opacity-10 pointer-events-none" />
+      <div className="absolute top-1/3 right-1/4 w-64 h-64 bg-purple-600 rounded-full filter blur-[100px] opacity-10 dark:opacity-10 pointer-events-none" />
 
-      <main className="mx-auto grid max-w-6xl grid-cols-1 gap-8 px-4 py-10 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <section className="rounded-2xl border border-indigo-500/30 bg-slate-950/80 p-6 shadow-2xl shadow-indigo-950/30 md:p-8">
-          <div className="mb-7 border-b border-white/10 pb-6">
-            <p className="mb-2 text-xs font-bold uppercase tracking-wider text-indigo-300">Student Profile Details</p>
-            <h1 className="text-3xl font-extrabold text-white">Manage Your Account</h1>
-            <p className="mt-2 text-sm text-slate-400">Update the details used for certificates, dashboard records, and admin verification.</p>
+      <div className="relative z-10">
+        <Navbar />
+
+        <main className="mx-auto grid max-w-6xl grid-cols-1 gap-8 px-4 py-10 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 backdrop-blur-xl p-6 shadow-2xl transition-colors duration-300 md:p-8">
+          <div className="mb-7 border-b border-zinc-200 dark:border-white/10 pb-6">
+            <p className="mb-2 text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Student Profile Details</p>
+            <h1 className="text-3xl font-extrabold text-zinc-900 dark:text-white">Manage Your Account</h1>
+            <p className="mt-2 text-sm text-zinc-500 dark:text-slate-400">Update the details used for certificates, dashboard records, and admin verification.</p>
           </div>
 
           {status && (
@@ -190,37 +195,37 @@ export default function Profile() {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">Email Address</label>
-              <div className="flex items-center gap-3 rounded-lg border border-white/10 bg-slate-900/80 px-4 py-3 text-slate-400">
-                <Mail className="h-5 w-5 text-slate-500" />
+              <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-slate-400">Email Address</label>
+              <div className="flex items-center gap-3 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-4 py-3 text-zinc-500 dark:text-slate-400">
+                <Mail className="h-5 w-5 text-zinc-400 dark:text-slate-500" />
                 <input value={user?.email ?? ''} readOnly className="w-full bg-transparent text-sm outline-none" />
               </div>
-              <p className="mt-2 text-xs text-slate-500">Email is your account ID and cannot be changed here.</p>
+              <p className="mt-2 text-xs text-zinc-500 dark:text-slate-500">Email is your account ID and cannot be changed here.</p>
             </div>
 
             <div>
-              <label htmlFor="full_name" className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">Full Name</label>
-              <div className="flex items-center gap-3 rounded-lg border border-white/10 bg-slate-900/80 px-4 py-3 focus-within:border-indigo-400">
-                <User className="h-5 w-5 text-slate-500" />
+              <label htmlFor="full_name" className="mb-2 block text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-slate-400">Full Name</label>
+              <div className="flex items-center gap-3 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-4 py-3 focus-within:border-indigo-400">
+                <User className="h-5 w-5 text-zinc-400 dark:text-slate-500" />
                 <input
                   id="full_name"
                   value={form.full_name}
                   onChange={(event) => setForm((current) => ({ ...current, full_name: event.target.value }))}
-                  className="w-full bg-transparent text-sm font-semibold text-white outline-none"
+                  className="w-full bg-transparent text-sm font-semibold text-zinc-900 dark:text-white outline-none"
                   placeholder="Enter your full name"
                 />
               </div>
             </div>
 
             <div>
-              <label htmlFor="mobile_number" className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">Mobile Number</label>
-              <div className="flex items-center gap-3 rounded-lg border border-white/10 bg-slate-900/80 px-4 py-3 focus-within:border-indigo-400">
-                <Phone className="h-5 w-5 text-slate-500" />
+              <label htmlFor="mobile_number" className="mb-2 block text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-slate-400">Mobile Number</label>
+              <div className="flex items-center gap-3 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-4 py-3 focus-within:border-indigo-400">
+                <Phone className="h-5 w-5 text-zinc-400 dark:text-slate-500" />
                 <input
                   id="mobile_number"
                   value={form.mobile_number}
                   onChange={(event) => setForm((current) => ({ ...current, mobile_number: event.target.value }))}
-                  className="w-full bg-transparent text-sm font-semibold text-white outline-none"
+                  className="w-full bg-transparent text-sm font-semibold text-zinc-900 dark:text-white outline-none"
                   inputMode="tel"
                   placeholder="Enter your mobile number"
                 />
@@ -228,15 +233,15 @@ export default function Profile() {
             </div>
 
             <div>
-              <label htmlFor="date_of_birth" className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">Date of Birth</label>
-              <div className="flex items-center gap-3 rounded-lg border border-white/10 bg-slate-900/80 px-4 py-3 focus-within:border-indigo-400">
-                <Calendar className="h-5 w-5 text-slate-500" />
+              <label htmlFor="date_of_birth" className="mb-2 block text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-slate-400">Date of Birth</label>
+              <div className="flex items-center gap-3 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-4 py-3 focus-within:border-indigo-400">
+                <Calendar className="h-5 w-5 text-zinc-400 dark:text-slate-500" />
                 <input
                   id="date_of_birth"
                   type="date"
                   value={form.date_of_birth}
                   onChange={(event) => setForm((current) => ({ ...current, date_of_birth: event.target.value }))}
-                  className="w-full bg-transparent text-sm font-semibold text-white outline-none [color-scheme:dark]"
+                  className="w-full bg-transparent text-sm font-semibold text-zinc-900 dark:text-white outline-none dark:[color-scheme:dark]"
                 />
               </div>
             </div>
@@ -253,29 +258,29 @@ export default function Profile() {
         </section>
 
         <aside className="space-y-5">
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Current Record</p>
+          <div className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 p-6 shadow-lg transition-colors duration-300">
+            <p className="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-slate-400">Current Record</p>
             <h2 className="mt-2 text-xl font-extrabold">{profileData?.full_name || 'Anonymous Typist'}</h2>
-            <p className="mt-1 truncate text-sm text-slate-400">{user?.email}</p>
+            <p className="mt-1 truncate text-sm text-zinc-500 dark:text-slate-400">{user?.email}</p>
             <div className="mt-5 grid grid-cols-2 gap-3">
-              <div className="rounded-lg bg-white/5 p-4">
-                <p className="text-2xl font-extrabold text-indigo-300">{stats.tests_taken}</p>
-                <p className="text-xs uppercase text-slate-500">Tests</p>
+              <div className="rounded-lg bg-white dark:bg-white/5 p-4 border border-zinc-200 dark:border-white/5">
+                <p className="text-2xl font-extrabold text-indigo-600 dark:text-indigo-300">{stats.tests_taken}</p>
+                <p className="text-xs uppercase text-zinc-500 dark:text-slate-500">Tests</p>
               </div>
-              <div className="rounded-lg bg-white/5 p-4">
-                <p className="text-2xl font-extrabold text-emerald-300">{stats.best_wpm}</p>
-                <p className="text-xs uppercase text-slate-500">Best WPM</p>
+              <div className="rounded-lg bg-white dark:bg-white/5 p-4 border border-zinc-200 dark:border-white/5">
+                <p className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-300">{stats.best_wpm}</p>
+                <p className="text-xs uppercase text-zinc-500 dark:text-slate-500">Best WPM</p>
               </div>
             </div>
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Personal Best Accuracy</p>
-            <p className="mt-3 text-5xl font-extrabold text-emerald-300">{stats.best_accuracy}%</p>
+          <div className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 p-6 shadow-lg transition-colors duration-300">
+            <p className="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-slate-400">Personal Best Accuracy</p>
+            <p className="mt-3 text-5xl font-extrabold text-emerald-600 dark:text-emerald-300">{stats.best_accuracy}%</p>
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Member Since</p>
+          <div className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 p-6 shadow-lg transition-colors duration-300">
+            <p className="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-slate-400">Member Since</p>
             <p className="mt-3 text-lg font-bold">
               {profileData?.created_at ? formatToDDMMYYYY(profileData.created_at) : 'Not Available'}
             </p>
@@ -283,12 +288,13 @@ export default function Profile() {
 
           <Link
             href="/dashboard"
-            className="block rounded-lg border border-white/10 bg-white/10 px-5 py-3 text-center text-sm font-bold text-white transition hover:bg-white/15"
+            className="block rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/10 px-5 py-3 text-center text-sm font-bold text-zinc-900 dark:text-white transition hover:bg-white dark:hover:bg-white/15"
           >
             Back to Dashboard
           </Link>
         </aside>
       </main>
+      </div>
     </div>
   );
 }
