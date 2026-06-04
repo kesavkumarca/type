@@ -30,11 +30,11 @@ export default function TypingTest() {
   const [results, setResults] = useState<any>(null);
   const [pageLoading, setPageLoading] = useState(true);
 
-  // ✅ New state to hold student profile name from profiles table
+  // ✅ Holds student profile name safely from profiles table
   const [profileName, setProfileName] = useState<string>('');
 
   // ⚙️ Toggles & Settings
-  const [backspaceEnabled, setBackspaceEnabled] = useState(true); // Default enabled
+  const [backspaceEnabled, setBackspaceEnabled] = useState(true);
 
   // 🛡️ Track submit locks
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -73,7 +73,7 @@ export default function TypingTest() {
           setPassage(null);
         }
 
-        // 2. ✅ Fetch student profile name from 'profiles' table using user.id
+        // 2. ✅ Fetch student profile name safely casted to bypass compilation limits
         if (user) {
           const { data: profileData, error: profileError } = await supabase
             .from('profiles')
@@ -82,7 +82,7 @@ export default function TypingTest() {
             .single();
 
           if (!profileError && profileData) {
-            setProfileName(profileData.full_name);
+            setProfileName((profileData as any).full_name);
           }
         }
       } catch (err) {
@@ -99,10 +99,9 @@ export default function TypingTest() {
 
   // 🧮 WORD-BASED Metric Calculation
   const calculateMetrics = useCallback(() => {
-    if (!passage) return { wpm: 0, accuracy: 0, strokes: 0, correctWords: 0, mistakes: 0, marks: 0, passed: false };
+    if (!passage) return { wpm: 0, accuracy: 0, strokes: 0, correctWords: 0, mistakes: 0, marks: 0, passed: false, deductionPerMistake: 1.8 };
 
     const strokes = userInput.length;
-
     const targetWords = passage.text.trim().split(/\s+/).filter(Boolean);
     const typedWords = userInput.trim().split(/\s+/).filter(Boolean);
 
@@ -122,11 +121,9 @@ export default function TypingTest() {
     });
 
     const elapsedSeconds = 600 - timeLeft;
-
     const activeElapsedSeconds = Math.max(elapsedSeconds, 10);
     const elapsedMinutes = activeElapsedSeconds / 60;
     const wpm = Math.round((strokes / 5) / elapsedMinutes);
-
     const accuracy = targetWords.length > 0 ? Math.round((correctWords / targetWords.length) * 100) : 0;
 
     const deductionPerMistake = level.toLowerCase() === 'senior' ? 1.25 : 1.8;
@@ -167,7 +164,6 @@ export default function TypingTest() {
     const activeElapsedSeconds = Math.max(elapsedSeconds, 10);
     const elapsedMinutes = activeElapsedSeconds / 60;
     const wpm = Math.round((strokes / 5) / elapsedMinutes);
-
     const accuracy = targetWords.length > 0 ? Math.round((correctWords / targetWords.length) * 100) : 0;
 
     const deductionPerMistake = level.toLowerCase() === 'senior' ? 1.25 : 1.8;
@@ -206,7 +202,7 @@ export default function TypingTest() {
     }
   }, [user, passage, language, level]);
 
-  // Timer - FIXED to update states flawlessly at 00:00
+  // Timer Setup
   useEffect(() => {
     if (!testStarted || testComplete) return;
 
@@ -215,7 +211,6 @@ export default function TypingTest() {
         if (prev <= 1) {
           clearInterval(timer);
           setTestComplete(true);
-          // Directly trigger background logic
           submitTest(userInputRef.current, 0);
           return 0;
         }
@@ -291,14 +286,15 @@ export default function TypingTest() {
     const overallPassed = results.passed;
 
     return (
-      <div className="min-h-screen bg-[#0b0f19] text-white relative overflow-hidden pb-12">
+      <div className="min-h-screen bg-[#0b0f19] text-white relative overflow-hidden pb-12" suppressHydrationWarning>
         <div className="absolute top-0 -left-1/4 w-96 h-96 bg-indigo-600 rounded-full filter blur-[120px] opacity-20 pointer-events-none" />
         <div className="absolute bottom-0 -right-1/4 w-96 h-96 bg-emerald-600 rounded-full filter blur-[120px] opacity-10 pointer-events-none" />
 
         <Navbar />
         <div className="max-w-5xl mx-auto px-4 py-12 relative z-10">
           <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 text-center shadow-2xl">
-            <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-300 mb-8">Test Complete!</h1>
+            <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-300 mb-2">Test Complete!</h1>
+            {profileName && <p className="text-slate-400 mb-6 text-sm">Student: {profileName}</p>}
 
             <div className="mb-8 max-w-sm mx-auto p-6 rounded-2xl border border-white/10 bg-white/5 shadow-2xl flex flex-col items-center justify-center">
               <span className="text-xs font-semibold tracking-wider text-slate-400 uppercase">Total Marks Obtained</span>
@@ -390,14 +386,13 @@ export default function TypingTest() {
   const activeWordValue = userInput.endsWith(' ') ? '' : typedWordsArray[typedWordsArray.length - 1] || '';
 
   return (
-    <div className="min-h-screen bg-[#0b0f19] text-white relative overflow-hidden">
+    <div className="min-h-screen bg-[#0b0f19] text-white relative overflow-hidden" suppressHydrationWarning>
       <div className="absolute top-0 -left-1/4 w-96 h-96 bg-indigo-600 rounded-full filter blur-[120px] opacity-20 pointer-events-none" />
       <div className="absolute bottom-0 -right-1/4 w-96 h-96 bg-purple-600 rounded-full filter blur-[120px] opacity-10 pointer-events-none" />
 
       <Navbar />
 
       <div className="max-w-6xl mx-auto px-4 py-8 relative z-10">
-
         <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 mb-6 shadow-2xl">
           <div className="flex flex-col sm:flex-row items-center justify-between mb-6 gap-4">
             <div>
@@ -454,7 +449,6 @@ export default function TypingTest() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
           <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 shadow-2xl">
             <h2 className="text-xl font-bold text-white mb-4">Original Passage</h2>
             <div
