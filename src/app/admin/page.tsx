@@ -208,112 +208,131 @@ function AdminPanelContent() {
         </div>
 
         {activeTab === 'students' && (
-          <div className="space-y-6">
-            {selectedStudent && (
-              <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-xl">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-bold">{selectedStudent.full_name || 'Anonymous'} — Test History</h2>
-                  <button onClick={() => setSelectedStudent(null)} className="text-slate-400 hover:text-white text-sm">✕ Close</button>
-                </div>
-                {selectedStudentTests.length === 0 ? (
-                  <p className="text-slate-500 text-sm">No tests recorded.</p>
-                ) : (
-                  <>
-                    <div className="h-48">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={selectedStudentTests.map((t, i) => ({ test: i + 1, wpm: t.wpm, accuracy: t.accuracy }))}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#2a324b" />
-                          <XAxis dataKey="test" stroke="#94a3b8" tick={{ fontSize: 11 }} />
-                          <YAxis stroke="#94a3b8" tick={{ fontSize: 11 }} />
-                          <Tooltip contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '8px' }} />
-                          <Legend wrapperStyle={{ fontSize: '11px', color: '#94a3b8' }} />
-                          <Line type="monotone" dataKey="wpm" stroke="#818cf8" strokeWidth={2} dot={false} name="WPM" />
-                          <Line type="monotone" dataKey="accuracy" stroke="#10b981" strokeWidth={2} dot={false} name="Accuracy %" />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
-                    <div className="mt-6">
-                      <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider mb-3">Exam Session Log</h3>
-                      <div className="overflow-x-auto rounded-xl border border-white/10">
-                        <table className="w-full text-left border-collapse">
-                          <thead>
-                            <tr className="bg-white/5 text-slate-400 text-xs font-semibold uppercase tracking-wider">
-                              <th className="px-4 py-3">Date &amp; Time</th>
-                              <th className="px-4 py-3">Language</th>
-                              <th className="px-4 py-3">Level</th>
-                              <th className="px-4 py-3 text-center">WPM</th>
-                              <th className="px-4 py-3 text-center">Accuracy</th>
-                              <th className="px-4 py-3 text-center">Strokes</th>
-                              <th className="px-4 py-3 text-center">Duration</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-white/5 text-sm text-white">
-                            {[...selectedStudentTests].reverse().map(attempt => (
-                              <tr key={attempt.id} className="hover:bg-white/5 transition-colors">
-                                <td className="px-4 py-3 text-slate-400">
-                                  {new Date(attempt.created_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
-                                </td>
-                                <td className="px-4 py-3 capitalize text-indigo-300">{attempt.language}</td>
-                                <td className="px-4 py-3 capitalize">{attempt.level}</td>
-                                <td className="px-4 py-3 text-center font-extrabold">{attempt.wpm}</td>
-                                <td className="px-4 py-3 text-center font-bold text-emerald-400">{attempt.accuracy}%</td>
-                                <td className="px-4 py-3 text-center text-slate-400">{attempt.strokes}</td>
-                                <td className="px-4 py-3 text-center text-slate-400">{attempt.duration_seconds}s</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+            {/* LEFT: Student List */}
+            <div className="md:col-span-1 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-6 flex flex-col md:h-[720px]">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold text-white">Student Telemetry</h2>
+                <button onClick={fetchStudentTelemetry} className="bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg border border-white/10 text-xs font-semibold text-white transition-all">
+                  🔄 Refresh
+                </button>
+              </div>
+              <input type="text" placeholder="Search students..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                className="w-full px-4 py-2 mb-4 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder-slate-400 focus:outline-none focus:border-indigo-500" />
+              <div className="overflow-y-auto flex-1 space-y-2 pr-1">
+                {loadingStudents ? (
+                  <div className="text-center py-12 text-slate-400 text-sm animate-pulse">Loading...</div>
+                ) : filteredStudents.length > 0 ? filteredStudents.map(student => {
+                  const metrics = metricsMap[student.id] || { total_tests: 0, avg_wpm: 0, avg_accuracy: 0 };
+                  const isSelected = selectedStudent?.id === student.id;
+                  return (
+                    <button
+                      key={student.id}
+                      onClick={() => handleSelectStudent(student)}
+                      className={`w-full text-left px-4 py-3 rounded-xl border transition-all cursor-pointer ${isSelected ? 'border-indigo-500 bg-indigo-500/10' : 'border-white/10 hover:border-white/20 hover:bg-white/5'}`}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <p className={`font-semibold truncate ${isSelected ? 'text-white' : 'text-slate-200'}`}>
+                          {student.full_name || 'Anonymous'}
+                        </p>
+                        {isSelected && (
+                          <span className="relative flex h-2 w-2 flex-shrink-0">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75" />
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500" />
+                          </span>
+                        )}
                       </div>
-                    </div>
-                  </>
+                      <p className="text-xs text-slate-400 truncate">{student.email || 'n/a'}</p>
+                      <div className="flex gap-3 mt-2 text-xs">
+                        <span className="text-indigo-400 font-bold">{metrics.total_tests} tests</span>
+                        <span className="text-white font-semibold">{metrics.avg_wpm} WPM</span>
+                        <span className="text-emerald-400 font-semibold">{metrics.avg_accuracy}%</span>
+                      </div>
+                    </button>
+                  );
+                }) : (
+                  <div className="text-center py-12 text-slate-500 text-sm">No students found.</div>
                 )}
               </div>
-            )}
-            <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
-              <div className="p-6 border-b border-white/10 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-                <h2 className="text-xl font-bold text-white">Student Telemetry</h2>
-                <div className="flex gap-3 flex-wrap">
-                  <input type="text" placeholder="Search students..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-                    className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder-slate-400 focus:outline-none focus:border-indigo-500" />
-                  <button onClick={fetchStudentTelemetry} className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg border border-white/10 text-xs font-semibold text-white transition-all">
-                    🔄 Refresh
-                  </button>
+            </div>
+
+            {/* RIGHT: Selected Student Detail */}
+            <div className="md:col-span-2">
+              {selectedStudent ? (
+                <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-xl space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-lg font-bold text-white">{selectedStudent.full_name || 'Anonymous'} — Test History</h2>
+                      <p className="text-xs text-slate-400 mt-1">
+                        {selectedStudent.email || 'n/a'} · Enrolled {new Date(selectedStudent.created_at).toLocaleDateString('en-IN')}
+                      </p>
+                    </div>
+                    <button onClick={() => setSelectedStudent(null)} className="text-slate-400 hover:text-white text-sm">✕ Close</button>
+                  </div>
+                  {selectedStudentTests.length === 0 ? (
+                    <p className="text-slate-500 text-sm">No tests recorded.</p>
+                  ) : (
+                    <>
+                      <div className="h-48">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={selectedStudentTests.map((t, i) => ({ test: i + 1, wpm: t.wpm, accuracy: t.accuracy }))}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#2a324b" />
+                            <XAxis dataKey="test" stroke="#94a3b8" tick={{ fontSize: 11 }} />
+                            <YAxis stroke="#94a3b8" tick={{ fontSize: 11 }} />
+                            <Tooltip contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '8px' }} />
+                            <Legend wrapperStyle={{ fontSize: '11px', color: '#94a3b8' }} />
+                            <Line type="monotone" dataKey="wpm" stroke="#818cf8" strokeWidth={2} dot={false} name="WPM" />
+                            <Line type="monotone" dataKey="accuracy" stroke="#10b981" strokeWidth={2} dot={false} name="Accuracy %" />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider mb-3">Exam Session Log</h3>
+                        <div className="overflow-x-auto rounded-xl border border-white/10">
+                          <table className="w-full text-left border-collapse">
+                            <thead>
+                              <tr className="bg-white/5 text-slate-400 text-xs font-semibold uppercase tracking-wider">
+                                <th className="px-4 py-3">Date &amp; Time</th>
+                                <th className="px-4 py-3">Language</th>
+                                <th className="px-4 py-3">Level</th>
+                                <th className="px-4 py-3 text-center">WPM</th>
+                                <th className="px-4 py-3 text-center">Accuracy</th>
+                                <th className="px-4 py-3 text-center">Strokes</th>
+                                <th className="px-4 py-3 text-center">Duration</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5 text-sm text-white">
+                              {[...selectedStudentTests].reverse().map(attempt => (
+                                <tr key={attempt.id} className="hover:bg-white/5 transition-colors">
+                                  <td className="px-4 py-3 text-slate-400">
+                                    {new Date(attempt.created_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                                  </td>
+                                  <td className="px-4 py-3 capitalize text-indigo-300">{attempt.language}</td>
+                                  <td className="px-4 py-3 capitalize">{attempt.level}</td>
+                                  <td className="px-4 py-3 text-center font-extrabold">{attempt.wpm}</td>
+                                  <td className="px-4 py-3 text-center font-bold text-emerald-400">{attempt.accuracy}%</td>
+                                  <td className="px-4 py-3 text-center text-slate-400">{attempt.strokes}</td>
+                                  <td className="px-4 py-3 text-center text-slate-400">{attempt.duration_seconds}s</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-white/5 text-slate-400 text-xs font-semibold uppercase tracking-wider">
-                      <th className="px-6 py-4">Learner</th>
-                      <th className="px-6 py-4">Email</th>
-                      <th className="px-6 py-4 text-center">Tests</th>
-                      <th className="px-6 py-4 text-center">Avg WPM</th>
-                      <th className="px-6 py-4 text-center">Avg Accuracy</th>
-                      <th className="px-6 py-4">Enrolled</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5 text-sm text-white">
-                    {loadingStudents ? (
-                      <tr><td colSpan={6} className="text-center py-12 text-slate-400 animate-pulse">Loading...</td></tr>
-                    ) : filteredStudents.length > 0 ? filteredStudents.map(student => {
-                      const metrics = metricsMap[student.id] || { total_tests: 0, avg_wpm: 0, avg_accuracy: 0 };
-                      return (
-                        <tr key={student.id} onClick={() => handleSelectStudent(student)} className="cursor-pointer hover:bg-white/5 transition-colors">
-                          <td className="px-6 py-4 font-semibold">{student.full_name || 'Anonymous'}</td>
-                          <td className="px-6 py-4 text-slate-400">{student.email || 'n/a'}</td>
-                          <td className="px-6 py-4 text-center font-bold text-indigo-400">{metrics.total_tests}</td>
-                          <td className="px-6 py-4 text-center"><span className="font-extrabold">{metrics.avg_wpm}</span> <span className="text-xs text-slate-400">WPM</span></td>
-                          <td className="px-6 py-4 text-center font-bold text-emerald-400">{metrics.avg_accuracy}%</td>
-                          <td className="px-6 py-4 text-slate-400">{new Date(student.created_at).toLocaleDateString('en-IN')}</td>
-                        </tr>
-                      );
-                    }) : (
-                      <tr><td colSpan={6} className="text-center py-12 text-slate-500">No students found.</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+              ) : (
+                <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl p-12 md:h-[720px] flex flex-col items-center justify-center text-center">
+                  <svg className="w-12 h-12 text-indigo-400/30 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  <p className="text-sm font-semibold uppercase tracking-wider text-slate-400">Select a Student</p>
+                  <p className="text-xs text-slate-500 mt-1 max-w-xs">Click any student from the left panel to view their telemetry charts and speed records.</p>
+                </div>
+              )}
             </div>
           </div>
         )}
