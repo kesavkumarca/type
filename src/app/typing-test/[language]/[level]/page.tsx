@@ -35,6 +35,7 @@ export default function TypingTest() {
 
   // ⚙️ Toggles & Settings
   const [backspaceEnabled, setBackspaceEnabled] = useState(true);
+  const [highlightEnabled, setHighlightEnabled] = useState(true); // 🆕 Highlight toggle state
 
   // 🛡️ Track submit locks
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -57,7 +58,6 @@ export default function TypingTest() {
 
     const fetchData = async () => {
       try {
-        // 1. Fetch passage
         const { data: passageData, error: passageError } = await supabase
           .from('passages')
           .select('*')
@@ -73,7 +73,6 @@ export default function TypingTest() {
           setPassage(null);
         }
 
-        // 2. ✅ Fetch student profile name safely with an inline type assertion to bypass type 'never' checks
         if (user) {
           const { data: profileData, error: profileError } = await supabase
             .from('profiles')
@@ -402,18 +401,37 @@ export default function TypingTest() {
               </h1>
             </div>
 
-            <div className="flex items-center gap-2 bg-white/5 p-2 rounded-xl border border-white/10">
-              <span className="text-xs text-slate-300 font-medium">Backspace:</span>
-              <button
-                onClick={() => setBackspaceEnabled(!backspaceEnabled)}
-                disabled={testStarted && !testComplete}
-                className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all duration-300 ${backspaceEnabled
-                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/30'
-                    : 'bg-white/10 text-slate-400 hover:bg-white/20'
-                  }`}
-              >
-                {backspaceEnabled ? 'ENABLED' : 'DISABLED'}
-              </button>
+            {/* ⚙️ Toggle Controllers Container */}
+            <div className="flex items-center gap-4 flex-wrap">
+              {/* Backspace Toggle Option */}
+              <div className="flex items-center gap-2 bg-white/5 p-2 rounded-xl border border-white/10">
+                <span className="text-xs text-slate-300 font-medium">Backspace:</span>
+                <button
+                  onClick={() => setBackspaceEnabled(!backspaceEnabled)}
+                  disabled={testStarted && !testComplete}
+                  className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all duration-300 ${backspaceEnabled
+                      ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/30'
+                      : 'bg-white/10 text-slate-400 hover:bg-white/20'
+                    }`}
+                >
+                  {backspaceEnabled ? 'ENABLED' : 'DISABLED'}
+                </button>
+              </div>
+
+              {/* 🆕 Highlight Toggle Option (Placed Directly Beside Backspace) */}
+              <div className="flex items-center gap-2 bg-white/5 p-2 rounded-xl border border-white/10">
+                <span className="text-xs text-slate-300 font-medium">Highlight:</span>
+                <button
+                  onClick={() => setHighlightEnabled(!highlightEnabled)}
+                  disabled={testStarted && !testComplete}
+                  className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all duration-300 ${highlightEnabled
+                      ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/30'
+                      : 'bg-white/10 text-slate-400 hover:bg-white/20'
+                    }`}
+                >
+                  {highlightEnabled ? 'ENABLED' : 'DISABLED'}
+                </button>
+              </div>
             </div>
 
             <div className="flex items-center gap-4">
@@ -456,32 +474,40 @@ export default function TypingTest() {
               className="bg-black/30 border border-white/5 p-6 rounded-xl h-72 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10"
             >
               <div className={`text-slate-300 text-lg leading-relaxed tracking-normal flex flex-wrap gap-x-2 gap-y-1 ${language === 'tamil' ? 'tamil-text' : 'font-serif'}`}>
-                {targetWordsArray.map((word, i) => {
-                  let wordClass = "text-slate-400";
-                  const isCurrent = i === (userInput.endsWith(' ') ? typedWordsArray.length : typedWordsArray.length - 1);
+                {/* 🔀 Conditional Render based on highlight state */}
+                {highlightEnabled ? (
+                  targetWordsArray.map((word, i) => {
+                    let wordClass = "text-slate-400";
+                    const isCurrent = i === (userInput.endsWith(' ') ? typedWordsArray.length : typedWordsArray.length - 1);
 
-                  if (i < (userInput.endsWith(' ') ? typedWordsArray.length : typedWordsArray.length - 1)) {
-                    wordClass = typedWordsArray[i] === word
-                      ? "text-emerald-400 font-bold"
-                      : "text-red-400 font-bold underline decoration-wavy";
-                  } else if (isCurrent) {
-                    const isMismatch = activeWordValue !== word.slice(0, activeWordValue.length);
+                    if (i < (userInput.endsWith(' ') ? typedWordsArray.length : typedWordsArray.length - 1)) {
+                      wordClass = typedWordsArray[i] === word
+                        ? "text-emerald-400 font-bold"
+                        : "text-red-400 font-bold underline decoration-wavy";
+                    } else if (isCurrent) {
+                      const isMismatch = activeWordValue !== word.slice(0, activeWordValue.length);
 
-                    wordClass = isMismatch
-                      ? "bg-red-500/20 text-red-400 font-bold animate-pulse ring-2 ring-red-500/50"
-                      : "bg-indigo-500/30 text-white font-bold animate-pulse ring-2 ring-indigo-500/50";
-                  }
+                      wordClass = isMismatch
+                        ? "bg-red-500/20 text-red-400 font-bold animate-pulse ring-2 ring-red-500/50"
+                        : "bg-indigo-500/30 text-white font-bold animate-pulse ring-2 ring-indigo-500/50";
+                    }
 
-                  return (
-                    <span
-                      key={i}
-                      ref={isCurrent ? activeWordRef : null}
-                      className={`${wordClass} px-1.5 py-0.5 rounded-md transition-all duration-200`}
-                    >
-                      {word}
-                    </span>
-                  );
-                })}
+                    return (
+                      <span
+                        key={i}
+                        ref={isCurrent ? activeWordRef : null}
+                        className={`${wordClass} px-1.5 py-0.5 rounded-md transition-all duration-200`}
+                      >
+                        {word}
+                      </span>
+                    );
+                  })
+                ) : (
+                  /* 🏛️ Government Exam Mode: Render raw, standard text without any color changes or indicators */
+                  <span className="text-slate-300 select-none whitespace-pre-line">
+                    {passage.text}
+                  </span>
+                )}
               </div>
             </div>
           </div>
