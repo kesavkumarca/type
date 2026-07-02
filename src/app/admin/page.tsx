@@ -23,7 +23,17 @@ interface StudentProfile {
   id: string; full_name: string | null; email: string | null; created_at: string;
 }
 interface TestMetrics { total_tests: number; avg_wpm: number; avg_accuracy: number; }
-interface TestResult { user_id: string; wpm: number; accuracy: number; created_at: string; }
+interface TestResult {
+  id: string;
+  user_id: string;
+  wpm: number;
+  accuracy: number;
+  created_at: string;
+  language: string;
+  level: string;
+  strokes: number;
+  duration_seconds: number;
+}
 
 // ─────────────────────────────────────────────
 // MAIN ADMIN PANEL
@@ -44,6 +54,8 @@ function AdminPanelContent() {
   const [level, setLevel] = useState<'junior' | 'senior'>('junior');
   const [title, setTitle] = useState('');
   const [file, setFile] = useState<File | null>(null);
+  const [extractedText, setExtractedText] = useState('');
+  const [parsingPdf, setParsingPdf] = useState(false);
   const [passages, setPassages] = useState<Passage[]>([]);
   const [loadingPassages, setLoadingPassages] = useState(true);
   const [students, setStudents] = useState<StudentProfile[]>([]);
@@ -78,7 +90,7 @@ function AdminPanelContent() {
       if (profilesError) throw profilesError;
       const typedProfiles = (profilesData as StudentProfile[]) || [];
       setStudents(typedProfiles);
-      const { data: testsData, error: testsError } = await supabase.from('test_results').select('user_id, wpm, accuracy, created_at').order('created_at', { ascending: true });
+      const { data: testsData, error: testsError } = await supabase.from('test_results').select('id, user_id, wpm, accuracy, created_at, language, level, strokes, duration_seconds').order('created_at', { ascending: true });
       if (testsError) throw testsError;
       const typedTests = (testsData as TestResult[]) || [];
       setAllTestResults(typedTests);
@@ -114,28 +126,47 @@ function AdminPanelContent() {
     setSelectedStudentTests(allTestResults.filter(t => t.user_id === student.id && t.wpm > 0));
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
-    if (selectedFile && selectedFile.type === 'application/pdf') {
-      setFile(selectedFile); setError(null);
-      if (!title) setTitle(selectedFile.name.replace('.pdf', ''));
-    } else { setFile(null); setError('Please upload a valid PDF file.'); }
+    if (!(selectedFile && selectedFile.type === 'application/pdf')) {
+      setFile(null); setExtractedText(''); setError('Please upload a valid PDF file.');
+      return;
+    }
+
+    setFile(selectedFile); setError(null); setSuccess(null);
+    if (!title) setTitle(selectedFile.name.replace('.pdf', ''));
+
+    setParsingPdf(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      const response = await fetch('/api/parse-pdf', { method: 'POST', body: formData });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Failed to parse PDF.');
+      setExtractedText(result.text || '');
+    } catch (err: any) {
+      setError(err.message || 'Failed to extract text from PDF');
+      setExtractedText('');
+    } finally {
+      setParsingPdf(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); setError(null); setSuccess(null);
-    if (!title || !file) { setError('Please provide a title and select a PDF file.'); return; }
+    if (!title || !extractedText.trim()) { setError('Please provide a title and PDF passage text.'); return; }
     setUploading(true);
     try {
-      const formData = new FormData();
-      formData.append('file', file); formData.append('title', title);
-      formData.append('language', language); formData.append('level', level);
-      const response = await fetch('/api/parse-pdf', { method: 'POST', body: formData });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || 'Failed to parse PDF.');
-      setSuccess('🎉 PDF parsed and saved!');
-      setTitle(''); setFile(null); fetchPassages();
-    } catch (err: any) { setError(err.message || 'Failed to upload PDF passage'); }
+      const { error: insertError } = await supabase.from('passages').insert({
+        text: extractedText.trim(),
+        language,
+        level,
+        title,
+      });
+      if (insertError) throw insertError;
+      setSuccess('🎉 Passage saved!');
+      setTitle(''); setFile(null); setExtractedText(''); fetchPassages();
+    } catch (err: any) { setError(err.message || 'Failed to save passage'); }
     finally { setUploading(false); }
   };
 
@@ -187,19 +218,55 @@ function AdminPanelContent() {
                 {selectedStudentTests.length === 0 ? (
                   <p className="text-slate-500 text-sm">No tests recorded.</p>
                 ) : (
-                  <div className="h-48">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={selectedStudentTests.map((t, i) => ({ test: i + 1, wpm: t.wpm, accuracy: t.accuracy }))}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#2a324b" />
-                        <XAxis dataKey="test" stroke="#94a3b8" tick={{ fontSize: 11 }} />
-                        <YAxis stroke="#94a3b8" tick={{ fontSize: 11 }} />
-                        <Tooltip contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '8px' }} />
-                        <Legend wrapperStyle={{ fontSize: '11px', color: '#94a3b8' }} />
-                        <Line type="monotone" dataKey="wpm" stroke="#818cf8" strokeWidth={2} dot={false} name="WPM" />
-                        <Line type="monotone" dataKey="accuracy" stroke="#10b981" strokeWidth={2} dot={false} name="Accuracy %" />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
+                  <>
+                    <div className="h-48">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={selectedStudentTests.map((t, i) => ({ test: i + 1, wpm: t.wpm, accuracy: t.accuracy }))}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#2a324b" />
+                          <XAxis dataKey="test" stroke="#94a3b8" tick={{ fontSize: 11 }} />
+                          <YAxis stroke="#94a3b8" tick={{ fontSize: 11 }} />
+                          <Tooltip contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '8px' }} />
+                          <Legend wrapperStyle={{ fontSize: '11px', color: '#94a3b8' }} />
+                          <Line type="monotone" dataKey="wpm" stroke="#818cf8" strokeWidth={2} dot={false} name="WPM" />
+                          <Line type="monotone" dataKey="accuracy" stroke="#10b981" strokeWidth={2} dot={false} name="Accuracy %" />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+
+                    <div className="mt-6">
+                      <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider mb-3">Exam Session Log</h3>
+                      <div className="overflow-x-auto rounded-xl border border-white/10">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="bg-white/5 text-slate-400 text-xs font-semibold uppercase tracking-wider">
+                              <th className="px-4 py-3">Date &amp; Time</th>
+                              <th className="px-4 py-3">Language</th>
+                              <th className="px-4 py-3">Level</th>
+                              <th className="px-4 py-3 text-center">WPM</th>
+                              <th className="px-4 py-3 text-center">Accuracy</th>
+                              <th className="px-4 py-3 text-center">Strokes</th>
+                              <th className="px-4 py-3 text-center">Duration</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-white/5 text-sm text-white">
+                            {[...selectedStudentTests].reverse().map(attempt => (
+                              <tr key={attempt.id} className="hover:bg-white/5 transition-colors">
+                                <td className="px-4 py-3 text-slate-400">
+                                  {new Date(attempt.created_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                                </td>
+                                <td className="px-4 py-3 capitalize text-indigo-300">{attempt.language}</td>
+                                <td className="px-4 py-3 capitalize">{attempt.level}</td>
+                                <td className="px-4 py-3 text-center font-extrabold">{attempt.wpm}</td>
+                                <td className="px-4 py-3 text-center font-bold text-emerald-400">{attempt.accuracy}%</td>
+                                <td className="px-4 py-3 text-center text-slate-400">{attempt.strokes}</td>
+                                <td className="px-4 py-3 text-center text-slate-400">{attempt.duration_seconds}s</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </>
                 )}
               </div>
             )}
@@ -285,11 +352,26 @@ function AdminPanelContent() {
                     <svg className="w-12 h-12 text-slate-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                     </svg>
-                    <p className="text-white text-base font-semibold">{file ? file.name : 'Drag and drop your PDF here, or click to browse'}</p>
+                    <p className="text-white text-base font-semibold">
+                      {parsingPdf ? 'Extracting text from PDF...' : file ? file.name : 'Drag and drop your PDF here, or click to browse'}
+                    </p>
                   </div>
                 </div>
-                <button type="submit" disabled={uploading} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 rounded-xl transition-all disabled:opacity-50">
-                  {uploading ? 'Parsing PDF Text...' : 'Add Passage 🚀'}
+                {(file || extractedText) && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">Passage Content (review &amp; edit before saving)</label>
+                    <textarea
+                      rows={10}
+                      value={extractedText}
+                      onChange={e => setExtractedText(e.target.value)}
+                      placeholder={parsingPdf ? 'Extracting text from PDF...' : 'Extracted text will appear here — review or edit before saving.'}
+                      disabled={parsingPdf}
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 disabled:opacity-50 font-mono text-sm resize-y"
+                    />
+                  </div>
+                )}
+                <button type="submit" disabled={uploading || parsingPdf || !extractedText.trim()} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 rounded-xl transition-all disabled:opacity-50">
+                  {uploading ? 'Saving Passage...' : parsingPdf ? 'Parsing PDF Text...' : 'Add Passage 🚀'}
                 </button>
               </form>
             </div>
