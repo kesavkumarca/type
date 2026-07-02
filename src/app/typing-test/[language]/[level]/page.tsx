@@ -503,10 +503,20 @@ export default function TypingTest() {
                     );
                   })
                 ) : (
-                  /* 🏛️ Government Exam Mode: Render raw, standard text without any color changes or indicators */
-                  <span className="text-slate-300 select-none whitespace-pre-line">
-                    {passage.text}
-                  </span>
+                  /* 🏛️ Government Exam Mode: Uniform styles, invisible scrolling reference preserved */
+                  targetWordsArray.map((word, i) => {
+                    const isCurrent = i === (userInput.endsWith(' ') ? typedWordsArray.length : typedWordsArray.length - 1);
+                    
+                    return (
+                      <span
+                        key={i}
+                        ref={isCurrent ? activeWordRef : null}
+                        className="text-slate-300 px-1.5 py-0.5"
+                      >
+                        {word}
+                      </span>
+                    );
+                  })
                 )}
               </div>
             </div>
